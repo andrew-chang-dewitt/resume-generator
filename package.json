@@ -1,0 +1,12 @@
+{
+  "name": "resume",
+  "version": "0.0.1",
+  "main": "",
+  "scripts": {},
+  "author": "Andrew Chang-DeWitt",
+  "license": "MIT",
+  "description": "",
+  "dependencies": {
+    "@mermaid-js/mermaid-cli": "^11.2.0"
+  }
+}
