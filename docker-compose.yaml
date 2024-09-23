@@ -1,0 +1,15 @@
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: andrew
+      POSTGRES_PASSWORD: pass
+      PGDATA: /var/lib/postgresql/data/pgdata
+      POSTGRES_DB: resume
+    ports:
+      - "5432:5432"
+    volumes:
+      - type: bind
+        source: ./pgdata
+        target: /var/lib/postgresql/pgdata
