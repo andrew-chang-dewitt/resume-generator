@@ -3,7 +3,6 @@ use sqlx::SqlitePool;
 
 use std::env;
 
-mod app;
 mod model;
 
 #[tokio::main(flavor = "current_thread")]
@@ -12,7 +11,7 @@ async fn main() -> anyhow::Result<()> {
     dotenvy::dotenv().ok();
 
     // get cli args
-    let args = app::Cli::parse();
+    let args = resume_generator::Cli::parse();
 
     // create db connection
     let dburl = &env::var("DBURL")?;
