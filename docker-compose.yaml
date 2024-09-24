@@ -3,10 +3,10 @@ services:
     image: postgres:16
     restart: unless-stopped
     environment:
-      POSTGRES_USER: andrew
-      POSTGRES_PASSWORD: pass
+      POSTGRES_USER: $POSTGRES_USER
+      POSTGRES_PASSWORD: $POSTGRES_PASSWORD
       PGDATA: /var/lib/postgresql/data/pgdata
-      POSTGRES_DB: resume
+      POSTGRES_DB: $POSTGRES_DB
     ports:
       - "5432:5432"
     volumes:
