@@ -64,6 +64,7 @@ async fn handle_command(
     Ok(())
 }
 
+#[mockall::automock]
 #[async_trait]
 trait ResumeModel {
     async fn add_data(&self, description: String) -> anyhow::Result<i64>;
@@ -95,5 +96,46 @@ impl ResumeModel for Resume {
 
     async fn lst_data(&self) -> anyhow::Result<()> {
         unimplemented!()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use mockall::predicate::*;
+
+    // FIXME/TODO:
+    // As written, this test is only validating the code from the cli args to the model, but not
+    // that the model saves or returns the correct data to/from the db
+    // might need to go full integration test w/ a test db?
+    // that points to pulling the model setup code out of main--maybe all of db setup code--then
+    // passing a url connection string to a function that returns a db model object
+    // with that, we could use a prod db and a test db
+    #[tokio::test]
+    async fn test_mocked_add() {
+        let desc = String::from("my data");
+        let args = Args {
+            cmd: Some(Command::Add {
+                description: desc.clone(),
+            }),
+        };
+
+        let mut mock_resume = MockResumeModel::new();
+        mock_resume
+            .expect_add_data()
+            .times(1)
+            .with(eq(desc))
+            .returning(|_| Ok(1));
+
+        let mut mock_writer = Vec::new();
+
+        handle_command(args, mock_resume, &mut mock_writer)
+            .await
+            .unwrap();
+
+        assert_eq!(
+            String::from_utf8_lossy(&mock_writer),
+            "Adding data w/ description \'my data\'\nAdded data with id 1\n"
+        );
     }
 }
