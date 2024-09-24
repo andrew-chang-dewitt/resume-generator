@@ -3,7 +3,7 @@ use sqlx::SqlitePool;
 
 use std::{io::Write, sync::Arc};
 
-use crate::model::ResumeModel;
+// use crate::model::ResumeModel;
 
 #[derive(Debug, Parser)]
 pub struct Cli {
@@ -40,8 +40,9 @@ impl App {
 
     pub async fn run(&self, args: Cli, writer: &mut impl Write) -> anyhow::Result<()> {
         match args.cmd {
-            Command::Add(add_cmd) => match add_cmd {
+            Command::Add(add) => match add.cmd {
                 Some(AddCommand::Skill { name }) => {}
+                None => {}
             },
         }
 
