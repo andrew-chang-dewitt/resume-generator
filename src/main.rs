@@ -3,8 +3,6 @@ use sqlx::SqlitePool;
 
 use std::env;
 
-mod model;
-
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> anyhow::Result<()> {
     // get env vars
@@ -24,9 +22,7 @@ async fn main() -> anyhow::Result<()> {
     // setup stdio write stream
     let mut writer = std::io::stdout();
 
-    // setup app
-    let app = app::App::new(pool);
-    app.run(args, &mut writer).await
+    resume_generator::run(args, pool, &mut writer).await
 }
 
 // #[cfg(test)]

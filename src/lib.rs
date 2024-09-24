@@ -1,7 +1,9 @@
-use clap::{Args, Parser, Subcommand};
+use std::io::Write;
+
+use clap::{Parser, Subcommand};
 use sqlx::SqlitePool;
 
-use std::{io::Write, sync::Arc};
+mod add;
 
 // use crate::model::ResumeModel;
 
@@ -13,39 +15,13 @@ pub struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Command {
-    Add(AddArgs),
+    Add(add::Cmds),
 }
 
-#[derive(Debug, Args)]
-struct AddArgs {
-    #[command(subcommand)]
-    cmd: Option<AddCommand>,
-}
+pub async fn run(args: Cli, pool: SqlitePool, writer: &mut impl Write) -> anyhow::Result<()> {
+    match args.cmd {
+        Command::Add(add) => add::handle_add(add, pool, writer).await?,
+    };
 
-#[derive(Debug, Subcommand)]
-enum AddCommand {
-    Skill { name: String },
-}
-
-pub struct App {
-    pub pool: Arc<SqlitePool>,
-}
-
-impl App {
-    pub fn new(pool: SqlitePool) -> Self {
-        Self {
-            pool: Arc::new(pool),
-        }
-    }
-
-    pub async fn run(&self, args: Cli, writer: &mut impl Write) -> anyhow::Result<()> {
-        match args.cmd {
-            Command::Add(add) => match add.cmd {
-                Some(AddCommand::Skill { name }) => {}
-                None => {}
-            },
-        }
-
-        Ok(())
-    }
+    Ok(())
 }
