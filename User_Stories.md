@@ -18,6 +18,7 @@
    Commands:
    init <file path>   create new save file
    add <subcommand>   add data, see `rgen add --help` for more
+   show <subcommand>  show data, see `rgen show --help` for more
    edit <subcommand>  edit data, see `rgen edit --help` for more
    del <subcommand>   delete data, see `rgen del --help` for more
    create <file path> generate new resume of given type at given path, see `rgen create --help` for more
