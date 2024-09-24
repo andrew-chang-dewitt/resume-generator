@@ -1,45 +1,50 @@
-use clap::{Parser, Subcommand};
+use clap::{Args, Parser, Subcommand};
+use sqlx::SqlitePool;
 
-use std::io::Write;
+use std::{io::Write, sync::Arc};
 
 use crate::model::ResumeModel;
 
-#[derive(Parser)]
-pub struct Args {
+#[derive(Debug, Parser)]
+pub struct Cli {
     #[command(subcommand)]
-    pub cmd: Option<Command>,
+    cmd: Command,
 }
 
-#[derive(Subcommand)]
-pub enum Command {
-    Add { description: String },
-    Del { id: i64 },
+#[derive(Debug, Subcommand)]
+enum Command {
+    Add(AddArgs),
 }
 
-pub async fn handle_command(
-    args: Args,
-    resume: impl ResumeModel,
-    writer: &mut impl Write,
-) -> anyhow::Result<()> {
-    match args.cmd {
-        Some(Command::Add { description }) => {
-            writeln!(writer, "Adding data w/ description '{}'", &description)?;
-            let id = resume.add_data(description).await?;
-            writeln!(writer, "Added data with id {id}")?;
-        }
-        Some(Command::Del { id }) => {
-            writeln!(writer, "Deleting data w/ id '{}'", &id)?;
-            if resume.del_data(id).await? {
-                writeln!(writer, "Deleted data with id {id}")?;
-            } else {
-                writeln!(writer, "Invalid id {id}")?;
-            }
-        }
-        None => {
-            writeln!(writer, "Printing all data")?;
-            resume.lst_data().await?;
+#[derive(Debug, Args)]
+struct AddArgs {
+    #[command(subcommand)]
+    cmd: Option<AddCommand>,
+}
+
+#[derive(Debug, Subcommand)]
+enum AddCommand {
+    Skill { name: String },
+}
+
+pub struct App {
+    pub pool: Arc<SqlitePool>,
+}
+
+impl App {
+    pub fn new(pool: SqlitePool) -> Self {
+        Self {
+            pool: Arc::new(pool),
         }
     }
 
-    Ok(())
+    pub async fn run(&self, args: Cli, writer: &mut impl Write) -> anyhow::Result<()> {
+        match args.cmd {
+            Command::Add(add_cmd) => match add_cmd {
+                Some(AddCommand::Skill { name }) => {}
+            },
+        }
+
+        Ok(())
+    }
 }

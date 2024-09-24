@@ -1,0 +1,22 @@
+CREATE TABLE IF NOT EXISTS SkillCategory (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL
+) STRICT;
+
+CREATE TABLE IF NOT EXISTS Job (
+    id INTEGER PRIMARY KEY,
+    job_title TEXT NOT NULL,
+    start_date TEXT NOT NULL,
+    end_date TEXT
+) STRICT;
+
+CREATE TABLE IF NOT EXISTS SkillDeveloper (
+    id
+) STRICT;
+
+CREATE TABLE IF NOT EXISTS DevelopedSkill (
+    skill_id INTEGER NOT NULL,
+    dev_id INTEGER NOT NULL,
+    FOREIGN KEY (skill_id) REFERENCES Skill (id) ON DELETE CASCADE,
+    FOREIGN KEY (dev_id) REFERENCES SkillDeveloper (id) ON DELETE CASCADE
+) STRICT;
