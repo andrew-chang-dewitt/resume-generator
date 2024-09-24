@@ -10,5 +10,5 @@ anyhow = "1.0.89"
 async-trait = "0.1.82"
 clap = { version = "4.5.18", features = ["derive"] }
 dotenvy = "0.15.7"
-sqlx = { version = "0.8.2", features = ["macros", "derive", "postgres", "runtime-tokio", "tls-rustls-ring", "migrate"] }
+sqlx = { version = "0.8.2", features = ["macros", "derive", "runtime-tokio", "tls-rustls-ring", "migrate", "sqlite"] }
 tokio = { version = "1.40.0", features = ["macros", "rt"] }
