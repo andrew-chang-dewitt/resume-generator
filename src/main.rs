@@ -1,4 +1,5 @@
 use clap::Parser;
+use log::{debug, info};
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> anyhow::Result<()> {
@@ -9,6 +10,8 @@ async fn main() -> anyhow::Result<()> {
     let args = res_gen::Args::parse();
     // init app
     let app = res_gen::App::new(args).await?;
+    info!("App initialized.");
+    debug!("{app:#?}");
 
     // // create db connection
     // let dburl = &env::var("DBURL")?;

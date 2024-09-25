@@ -1,13 +1,14 @@
-use std::{io::Write, sync::Arc};
+use std::io::Write;
 
-use async_trait::async_trait;
 use clap::{Args, Subcommand};
-use sqlx::{query, SqlitePool};
+use sqlx::SqlitePool;
 
-use crate::Models;
+use crate::model::{self, Model};
+
+// use crate::Models;
 
 #[derive(Debug, Args)]
-pub struct AddArgs {
+pub struct Add {
     #[command(subcommand)]
     cmd: Command,
 }
@@ -15,26 +16,21 @@ pub struct AddArgs {
 #[derive(Debug, Subcommand)]
 enum Command {
     Skill { name: String },
-    Show { skill: Option<String> },
+    // Show { skill: Option<String> },
 }
 
-// pub async fn handle_add(
-//     args: Cmds,
-//     pool: SqlitePool,
-//     writer: &mut impl Write,
-// ) -> anyhow::Result<()> {
-//     match args.cmd {
-//         Some(Command::Skill { name }) => {
-//             let id = models.skill.create(&name).await?;
-//             writeln!(writer, "New Skill, {name}, created with id {id}")?;
-//         }
-//         Some(Command::Show { skill }) => {
-//             if let Some(s) = skill {
-//                 let results = Skill::
-//             }
-//         }
-//         None => todo!(),
-//     };
-//
-//     Ok(())
-// }
+impl Add {
+    pub async fn handle(&self, pool: &SqlitePool, writer: &mut impl Write) -> anyhow::Result<i64> {
+        match &self.cmd {
+            Command::Skill { name } => {
+                let model::Skill {
+                    name: new_name,
+                    id: new_id,
+                } = model::Skill::create(pool, name).await?;
+                writeln!(writer, "New Skill, {new_name}, created with id {new_id}")?;
+
+                Ok(new_id)
+            }
+        }
+    }
+}

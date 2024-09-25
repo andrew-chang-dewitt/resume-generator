@@ -1,23 +1,25 @@
 use async_trait::async_trait;
-use sqlx::{query, SqlitePool};
+use sqlx::{query_as, SqlitePool};
 
-pub struct Skill;
+use super::Model;
 
-impl Skill {
-    pub fn new(pool: SqlitePool) -> Self {
-        Self {
-            pool: Arc::new(pool),
-        }
-    }
+#[derive(Debug)]
+pub struct Skill {
+    pub id: i64,
+    pub name: String,
 }
 
 #[async_trait]
 impl Model for Skill {
-    async fn create(&self, name: &String) -> anyhow::Result<i64> {
-        let res = query!("INSERT INTO Skill (name) Values ($1) RETURNING id;", name)
-            .fetch_one(&*self.pool)
-            .await?;
-
-        Ok(res.id)
+    type Output = Self;
+    async fn create(pool: &SqlitePool, name: &String) -> anyhow::Result<Self::Output> {
+        query_as!(
+            Skill,
+            "INSERT INTO Skill (name) Values ($1) RETURNING name, id;",
+            name
+        )
+        .fetch_one(pool)
+        .await
+        .map_err(|e| e.into())
     }
 }
