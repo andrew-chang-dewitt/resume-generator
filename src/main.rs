@@ -6,7 +6,7 @@ async fn main() -> anyhow::Result<()> {
     dotenvy::dotenv().ok();
 
     // get cli args
-    let args = res_gen::AppArgs::parse();
+    let args = res_gen::Args::parse();
     // init app
     let app = res_gen::App::new(args).await?;
 
