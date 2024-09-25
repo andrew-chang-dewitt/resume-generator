@@ -4,7 +4,7 @@ use clap::{Parser, Subcommand, ValueEnum};
 use log::{debug, info};
 use sqlx::SqlitePool;
 
-mod add;
+mod handler;
 mod logging;
 mod model;
 
@@ -27,7 +27,7 @@ pub struct Args {
 
 #[derive(Debug, Subcommand)]
 pub enum Command {
-    Add(add::Add),
+    Add(handler::Add),
 }
 
 /// Obj for holding active db pool, cli command given on exec, and necessary configuration

@@ -16,7 +16,6 @@ pub struct Add {
 #[derive(Debug, Subcommand)]
 enum Command {
     Skill { name: String },
-    // Show { skill: Option<String> },
 }
 
 impl Add {
