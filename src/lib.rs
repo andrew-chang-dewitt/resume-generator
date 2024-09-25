@@ -28,6 +28,7 @@ pub struct Args {
 #[derive(Debug, Subcommand)]
 pub enum Command {
     Add(handler::Add),
+    Show(handler::Show),
 }
 
 /// Obj for holding active db pool, cli command given on exec, and necessary configuration
@@ -72,6 +73,7 @@ impl App {
         debug!("Executing command {:#?}.", self.cmd);
         match self.cmd {
             Command::Add(add) => add.handle(&self.pool, writer).await.map(|_| ()),
+            Command::Show(show) => show.handle(&self.pool, writer).await,
         }
     }
 }

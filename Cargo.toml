@@ -14,4 +14,5 @@ log = "0.4.22"
 mockall = "0.13.0"
 simplelog = "0.12.2"
 sqlx = { version = "0.8.2", features = ["macros", "derive", "runtime-tokio", "tls-rustls-ring", "migrate", "sqlite"] }
+thiserror = "1.0.64"
 tokio = { version = "1.40.0", features = ["macros", "rt"] }

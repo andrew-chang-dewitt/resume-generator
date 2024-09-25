@@ -5,8 +5,6 @@ use sqlx::SqlitePool;
 
 use crate::model::{self, Model};
 
-// use crate::Models;
-
 #[derive(Debug, Args)]
 pub struct Add {
     #[command(subcommand)]

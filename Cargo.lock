@@ -1025,6 +1025,7 @@ dependencies = [
  "mockall",
  "simplelog",
  "sqlx",
+ "thiserror",
  "tokio",
 ]
 
