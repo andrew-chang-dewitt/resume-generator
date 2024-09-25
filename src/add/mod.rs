@@ -4,6 +4,8 @@ use async_trait::async_trait;
 use clap::{Args, Subcommand};
 use sqlx::{query, SqlitePool};
 
+use crate::Models;
+
 #[derive(Debug, Args)]
 pub struct Cmds {
     #[command(subcommand)]
@@ -13,17 +15,24 @@ pub struct Cmds {
 #[derive(Debug, Subcommand)]
 enum Command {
     Skill { name: String },
+    Show { skill: Option<String> },
 }
 
 pub async fn handle_add(
     args: Cmds,
-    pool: SqlitePool,
+    models: Models,
     writer: &mut impl Write,
 ) -> anyhow::Result<()> {
     match args.cmd {
         Some(Command::Skill { name }) => {
-            let id = Skill::new(pool).create(&name).await?;
+            if models.skill.is_none() {models.skill = Some( Skill::new(pool) )}
+            let id = models.skill.create(&name).await?;
             writeln!(writer, "New Skill, {name}, created with id {id}")?;
+        }
+        Some(Command::Show { skill }) => {
+            if let Some(s) = skill {
+                let results = Skill::
+            }
         }
         None => todo!(),
     };
@@ -37,7 +46,7 @@ trait Model {
 }
 
 #[derive(Debug)]
-struct Skill {
+pub struct Skill {
     pool: Arc<SqlitePool>,
 }
 

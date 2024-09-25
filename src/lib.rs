@@ -1,4 +1,4 @@
-use std::io::Write;
+use std::{io::Write, sync::Arc};
 
 use clap::{Parser, Subcommand};
 use sqlx::SqlitePool;
@@ -18,9 +18,29 @@ enum Command {
     Add(add::Cmds),
 }
 
+struct Models {
+    pool: Arc<SqlitePool>,
+    skill: Option<add::Skill>,
+}
+
+impl Models {
+    pub fn new(pool: SqlitePool) -> Self {
+        Self {
+            pool: Arc::new(pool),
+            skill: None,
+        }
+    }
+
+    pub fn init_skill(&self) {
+        self.skill = Some(add::Skill::new(pool));
+    }
+}
+
 pub async fn run(args: Cli, pool: SqlitePool, writer: &mut impl Write) -> anyhow::Result<()> {
+    let mut models = Models::new(pool);
+
     match args.cmd {
-        Command::Add(add) => add::handle_add(add, pool, writer).await?,
+        Command::Add(add) => add::handle_add(add, models, writer).await?,
     };
 
     Ok(())
