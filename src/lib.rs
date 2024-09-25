@@ -4,6 +4,7 @@ use clap::{Parser, Subcommand};
 use sqlx::SqlitePool;
 
 mod add;
+mod model;
 
 // use crate::model::ResumeModel;
 
@@ -37,10 +38,8 @@ impl Models {
 }
 
 pub async fn run(args: Cli, pool: SqlitePool, writer: &mut impl Write) -> anyhow::Result<()> {
-    let mut models = Models::new(pool);
-
     match args.cmd {
-        Command::Add(add) => add::handle_add(add, models, writer).await?,
+        Command::Add(add) => add::handle_add(add, pool, writer).await?,
     };
 
     Ok(())
