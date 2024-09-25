@@ -1,46 +1,85 @@
-use std::{io::Write, sync::Arc};
+// use std::{io::Write, sync::Arc};
 
-use clap::{Parser, Subcommand};
+use std::{env, io::Write};
+
+use clap::{Args, Parser, Subcommand};
 use sqlx::SqlitePool;
 
-mod add;
-mod model;
+// mod add;
+// mod model;
 
 // use crate::model::ResumeModel;
 
+pub struct App<'a, Writer: Write> {
+    cmd: Command,
+    config: AppConfig,
+    pool: SqlitePool,
+    writer: Option<&'a mut Writer>,
+}
+
+impl<'a, Writer: Write> App<'a, Writer> {
+    pub async fn new(args: AppArgs) -> anyhow::Result<Self> {
+        // create config obj from args
+        let dburl = match args.dburl {
+            Some(s) => s,
+            None => env::var("DBURL")?,
+        };
+        let config = AppConfig::new(dburl);
+        // connect to db
+        let pool = SqlitePool::connect(&config.dburl).await?;
+        // make sure db is up to date
+        sqlx::migrate!().run(&pool).await?;
+
+        Ok(Self {
+            cmd: args.cmd,
+            config,
+            pool,
+            writer: None,
+        })
+    }
+
+    pub async fn run(&self, writer: &'a mut Writer) -> anyhow::Result<()> {
+        todo!()
+    }
+}
+
+pub struct AppConfig {
+    dburl: String,
+}
+
+impl AppConfig {
+    fn new(dburl: String) -> Self {
+        Self { dburl }
+    }
+}
+
 #[derive(Debug, Parser)]
-pub struct Cli {
+/// A Resume data storage & generation tool.
+///
+/// A CLI for organizing skills, education, jobs, projects, & other resume details, then
+/// assists creating a resume file of various formats by interactively selecting data points to
+/// include, then generating a file of the desired type.
+pub struct AppArgs {
     #[command(subcommand)]
     cmd: Command,
+    #[arg(short, long)]
+    /// sqlite url connection string, can set via DBURL environment variable as well
+    dburl: Option<String>,
 }
 
 #[derive(Debug, Subcommand)]
-enum Command {
-    Add(add::Cmds),
+pub enum Command {
+    Add(AddArgs),
 }
 
-struct Models {
-    pool: Arc<SqlitePool>,
-    skill: Option<add::Skill>,
+#[derive(Debug, Args)]
+pub struct AddArgs {
+    #[command(subcommand)]
+    cmd: AddCommand,
 }
 
-impl Models {
-    pub fn new(pool: SqlitePool) -> Self {
-        Self {
-            pool: Arc::new(pool),
-            skill: None,
-        }
-    }
-
-    pub fn init_skill(&self) {
-        self.skill = Some(add::Skill::new(pool));
-    }
-}
-
-pub async fn run(args: Cli, pool: SqlitePool, writer: &mut impl Write) -> anyhow::Result<()> {
-    match args.cmd {
-        Command::Add(add) => add::handle_add(add, pool, writer).await?,
-    };
-
-    Ok(())
+#[derive(Debug, Subcommand)]
+enum AddCommand {
+    Skill { name: String },
+    Show { skill: Option<String> },
 }

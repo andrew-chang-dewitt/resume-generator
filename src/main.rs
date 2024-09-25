@@ -1,28 +1,28 @@
 use clap::Parser;
-use sqlx::SqlitePool;
-
-use std::env;
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> anyhow::Result<()> {
-    // get env vars
+    // load env vars from .env file if present
     dotenvy::dotenv().ok();
 
     // get cli args
-    let args = resume_generator::Cli::parse();
+    let args = res_gen::AppArgs::parse();
+    // init app
+    let app = res_gen::App::new(args).await?;
 
-    // create db connection
-    let dburl = &env::var("DBURL")?;
-    let pool = SqlitePool::connect(&dburl).await?;
-    // make sure db is up to date
-    sqlx::migrate!().run(&pool).await?;
+    // // create db connection
+    // let dburl = &env::var("DBURL")?;
+    // let pool = SqlitePool::connect(&dburl).await?;
+    // // make sure db is up to date
+    // sqlx::migrate!().run(&pool).await?;
     // // and create data model w/ db connection
     // let resume = model::Resume::new(pool);
 
     // setup stdio write stream
     let mut writer = std::io::stdout();
 
-    resume_generator::run(args, pool, &mut writer).await
+    // connect app to stdout & run
+    app.run(&mut writer).await
 }
 
 // #[cfg(test)]
