@@ -1,11 +1,11 @@
-/// A collection data structure for caching application data in memory.
-///
-/// TODO:
-/// - [ ] impl Get from Store deferred down to Tempcaches on State 
-/// - [ ] impl a save method on Store
-/// - [ ] impl db logic on Get
-/// - [ ] some sort of Update or Modify trait
-/// - [ ] track Changes in vec on Store
+//! A collection data structure for caching application data in memory.
+//
+// TODO:
+// - [ ] impl Get from Store deferred down to Tempcaches on State
+// - [ ] impl a save method on Store
+// - [ ] impl db logic on Get
+// - [ ] some sort of Update or Modify trait
+// - [ ] track Changes in vec on Store
 use std::collections::HashMap;
 
 use async_trait::async_trait;
@@ -13,8 +13,13 @@ use sqlx::SqlitePool;
 
 use crate::model;
 
-/// A data store, containing application state & db connection pool for updating underlying
-/// persistent data storage.
+/// A data store, containing application state & handling db updates.
+///
+/// ## Example
+///
+/// ```
+/// todo!()
+/// ```
 #[derive(Debug)]
 pub struct Store {
     pool: SqlitePool,
@@ -43,6 +48,11 @@ impl Add<model::Resume> for Store {
 }
 
 /// An object for representing application state.
+///
+/// TODO: Should this be a hashmap of strings to tempcaches? This would allow traversing the state
+/// types when saving changes or loading a lot of data into the cache at once (i.e. warming the
+/// cache) while still allowing access to the state by key. Maybe the key & associated type could
+/// be a user-defined enum even, allowing to restrict the State to pre-determined types.
 #[derive(Debug)]
 struct State {
     resumes: TempCache<model::Resume>,
