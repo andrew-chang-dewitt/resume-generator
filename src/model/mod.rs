@@ -8,17 +8,9 @@ pub use skill::Skill;
 pub trait Model<T: Clone>: Id<T> {
     type Output;
     async fn create(pool: &SqlitePool, name: &String) -> anyhow::Result<Self::Output>;
-    async fn get_one_by_id(pool: &SqlitePool, id: &T) -> anyhow::Result<Option<Self::Output>>;
-    async fn get_one_by_field(
-        pool: &SqlitePool,
-        field: &String,
-        value: &String,
-    ) -> anyhow::Result<Option<Self::Output>>;
-    async fn get_one_like_field(
-        pool: &SqlitePool,
-        field: &String,
-        query: &String,
-    ) -> anyhow::Result<Option<Self::Output>>;
+    async fn get_one_by_id(pool: &SqlitePool, id: &T) -> anyhow::Result<Self::Output>;
+    async fn get_one_includes(pool: &SqlitePool, query: &String) -> anyhow::Result<Self::Output>;
+    async fn get_all(pool: &SqlitePool) -> anyhow::Result<Vec<Self::Output>>;
 }
 
 pub trait Id<T: Clone> {

@@ -30,26 +30,22 @@ impl Model<i64> for Skill {
         .map_err(|e| e.into())
     }
 
-    async fn get_one_by_id(pool: &SqlitePool, id: &i64) -> anyhow::Result<Option<Self::Output>> {
-        query_as!(Skill, "SELECT * FROM Skill WHERE id=$1;", id,)
-            .fetch_optional(pool)
+    async fn get_one_by_id(pool: &SqlitePool, id: &i64) -> anyhow::Result<Self::Output> {
+        query_as!(Skill, "SELECT * FROM Skill WHERE id=$1;", id)
+            .fetch_one(pool)
             .await
             .map_err(|e| e.into())
     }
 
-    async fn get_one_by_field(
-        pool: &SqlitePool,
-        field: &String,
-        value: &String,
-    ) -> anyhow::Result<Option<Self::Output>> {
-        todo!()
+    async fn get_one_includes(pool: &SqlitePool, query: &String) -> anyhow::Result<Self::Output> {
+        let q = format!("%{query}%");
+        query_as!(Skill, "SELECT * FROM Skill WHERE name LIKE $1", q)
+            .fetch_one(pool)
+            .await
+            .map_err(|e| e.into())
     }
 
-    async fn get_one_like_field(
-        pool: &SqlitePool,
-        field: &String,
-        query: &String,
-    ) -> anyhow::Result<Option<Self::Output>> {
+    async fn get_all(pool: &SqlitePool) -> anyhow::Result<Vec<Self::Output>> {
         todo!()
     }
 }
