@@ -1,9 +1,9 @@
 use std::io::Write;
 
 use clap::{Args, Subcommand};
-use sqlx::SqlitePool;
 
-use crate::model::{self, Model};
+use crate::model;
+use crate::store::{Add as AddStore, Store};
 
 #[derive(Debug, Args)]
 pub struct Add {
@@ -13,21 +13,25 @@ pub struct Add {
 
 #[derive(Debug, Subcommand)]
 enum Command {
-    Skill { name: String },
+    Resume { name: String },
+    // Skill { name: String },
 }
 
 impl Add {
-    pub async fn handle(&self, pool: &SqlitePool, writer: &mut impl Write) -> anyhow::Result<i64> {
-        match &self.cmd {
-            Command::Skill { name } => {
-                let model::Skill {
-                    name: new_name,
-                    id: new_id,
-                } = model::Skill::create(pool, name).await?;
-                writeln!(writer, "New Skill, {new_name}, created with id {new_id}")?;
+    pub async fn handle(self, store: &mut Store, writer: &mut impl Write) -> anyhow::Result<i64> {
+        match self.cmd {
+            Command::Resume { name } => {
+                let resume = model::Resume::new(name);
+                Ok(store.add(resume))
+            } // Command::Skill { name } => {
+              //     let model::Skill {
+              //         name: new_name,
+              //         id: new_id,
+              //     } = model::Skill::create(pool, name).await?;
+              //     writeln!(writer, "New Skill, {new_name}, created with id {new_id}")?;
 
-                Ok(new_id)
-            }
+              //     Ok(new_id)
+              // }
         }
     }
 }

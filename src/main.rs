@@ -13,14 +13,6 @@ async fn main() -> anyhow::Result<()> {
     info!("App initialized.");
     debug!("{app:#?}");
 
-    // // create db connection
-    // let dburl = &env::var("DBURL")?;
-    // let pool = SqlitePool::connect(&dburl).await?;
-    // // make sure db is up to date
-    // sqlx::migrate!().run(&pool).await?;
-    // // and create data model w/ db connection
-    // let resume = model::Resume::new(pool);
-
     // setup stdio write stream
     let mut writer = std::io::stdout();
 

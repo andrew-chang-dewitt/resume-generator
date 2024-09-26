@@ -3,10 +3,12 @@ use std::{env, io::Write};
 use clap::{Parser, Subcommand, ValueEnum};
 use log::{debug, info};
 use sqlx::SqlitePool;
+use store::Store;
 
 mod handler;
 mod logging;
 mod model;
+mod store;
 
 #[derive(Debug, Parser)]
 /// A Resume data storage & generation tool.
@@ -18,7 +20,7 @@ pub struct Args {
     #[command(subcommand)]
     cmd: Command,
     #[arg(short, long)]
-    /// sqlite url connection string, can set via DBURL environment variable as well
+    /// sqlite url connection string, can set via DATABASE_URL environment variable as well
     dburl: Option<String>,
     /// set output verbosity
     #[arg(short, long, value_enum)]
@@ -28,7 +30,7 @@ pub struct Args {
 #[derive(Debug, Subcommand)]
 pub enum Command {
     Add(handler::Add),
-    Show(handler::Show),
+    // Show(handler::Show),
 }
 
 /// Obj for holding active db pool, cli command given on exec, and necessary configuration
@@ -36,7 +38,7 @@ pub enum Command {
 pub struct App {
     cmd: Command,
     config: AppConfig,
-    pool: SqlitePool,
+    store: Store,
 }
 
 impl App {
@@ -48,7 +50,7 @@ impl App {
         let config = AppConfig {
             dburl: match args.dburl {
                 Some(s) => s,
-                None => env::var("DBURL")?,
+                None => env::var("DATABASE_URL")?,
             },
             verbose: match args.verbose {
                 Some(v) => v,
@@ -64,16 +66,18 @@ impl App {
         // make sure db is up to date
         sqlx::migrate!().run(&pool).await?;
         debug!("DB schema up to date.");
+        // init data store
+        let store = Store::new(pool);
 
-        Ok(Self { cmd, config, pool })
+        Ok(Self { cmd, config, store })
     }
 
     /// Run app w/ command parsed from args & attach output to given write stream
-    pub async fn run(self, writer: &mut impl Write) -> anyhow::Result<()> {
+    pub async fn run(mut self, writer: &mut impl Write) -> anyhow::Result<()> {
         debug!("Executing command {:#?}.", self.cmd);
         match self.cmd {
-            Command::Add(add) => add.handle(&self.pool, writer).await.map(|_| ()),
-            Command::Show(show) => show.handle(&self.pool, writer).await,
+            Command::Add(add) => add.handle(&mut self.store, writer).await.map(|_| ()),
+            // Command::Show(show) => show.handle(&self.pool, writer).await,
         }
     }
 }
