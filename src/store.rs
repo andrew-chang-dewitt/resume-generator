@@ -9,7 +9,12 @@ use crate::model;
 /// persistent data storage.
 #[derive(Debug)]
 pub struct Store {
-    pool: SqlitePool, // not sure this needs to be arc?
+    pool: SqlitePool,
+    // TODO: track two state objects: initial state (from db) & current state initial modified by
+    // changes--allowing us to only apply changes from initial state to db on save
+    // this maybe leads to also maintaining a vec of changes, where if one were to apply
+    // each change in order to the initial state, they would arrive at the current state--this
+    // might give "free" info functionality if desired
     state: State,
 }
 
