@@ -24,7 +24,7 @@ impl Store {
 
 /// Add resumes to store, deferring to state.
 impl Add<model::Resume> for Store {
-    fn add(&mut self, value: model::Resume) -> i64 {
+    fn add(&mut self, value: model::Resume) -> Key {
         self.state.add(value)
     }
 }
@@ -45,7 +45,7 @@ impl State {
 
 /// Add a new resume to a State object--defers to underlying cache.
 impl Add<model::Resume> for State {
-    fn add(&mut self, value: model::Resume) -> i64 {
+    fn add(&mut self, value: model::Resume) -> Key {
         self.resumes.add(value)
     }
 }
@@ -55,8 +55,13 @@ impl Add<model::Resume> for State {
 #[derive(Debug)]
 struct TempCache<V> {
     next_tmp_key: i64,
-    temp: HashMap<i64, V>,
-    cache: HashMap<i64, V>,
+    cache: HashMap<Key, V>,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+pub enum Key {
+    Tmp(i64),
+    Db(i64),
 }
 
 impl<V> TempCache<V> {
@@ -64,7 +69,6 @@ impl<V> TempCache<V> {
     fn new() -> Self {
         Self {
             next_tmp_key: 0,
-            temp: HashMap::new(),
             cache: HashMap::new(),
         }
     }
@@ -73,9 +77,9 @@ impl<V> TempCache<V> {
 impl<V> Add<V> for TempCache<V> {
     /// Add a new value to the cache. Places new items in temp, allowing them to be added to the
     /// database & moved to cache with their actual id value on save.
-    fn add(&mut self, value: V) -> i64 {
-        let key = self.next_tmp_key;
-        self.temp.insert(key, value);
+    fn add(&mut self, value: V) -> Key {
+        let key = Key::Tmp(self.next_tmp_key);
+        self.cache.insert(key, value);
         self.next_tmp_key += 1;
         key
     }
@@ -85,12 +89,9 @@ impl<V> Add<V> for TempCache<V> {
 impl<V: Send> Get<V> for TempCache<V> {
     /// Extract a value with a matching id from the cache, or the underlying data store if not
     /// found in cache (updating the cache when found), or None if no matching value is found.
-    async fn get(&mut self, id: i64) -> Option<&V> {
-        // first we check if the requested id is in temp
-        if let Some(value) = self.temp.get(&id) {
-            return Some(value);
-        // then we check the cache
-        } else if let Some(value) = self.cache.get(&id) {
+    async fn get(&mut self, id: Key) -> Option<&V> {
+        // first we check if the requested id is in the cache
+        if let Some(value) = self.cache.get(&id) {
             return Some(value);
         } else {
             // TODO: actually get this from the db instead
@@ -102,12 +103,12 @@ impl<V: Send> Get<V> for TempCache<V> {
 
 /// Add a value to an implementing structure, returning the values new id number.
 pub trait Add<T> {
-    fn add(&mut self, value: T) -> i64;
+    fn add(&mut self, value: T) -> Key;
 }
 
 #[async_trait]
 /// Allow values to be borrowed by their id.
 pub trait Get<V: Send> {
     /// Find a value by it's id & borrow it, if it exists.
-    async fn get(&mut self, id: i64) -> Option<&V>;
+    async fn get(&mut self, id: Key) -> Option<&V>;
 }

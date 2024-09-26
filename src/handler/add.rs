@@ -3,7 +3,7 @@ use std::io::Write;
 use clap::{Args, Subcommand};
 
 use crate::model;
-use crate::store::{Add as AddStore, Store};
+use crate::store::{Add as AddStore, Key, Store};
 
 #[derive(Debug, Args)]
 pub struct Add {
@@ -18,7 +18,7 @@ enum Command {
 }
 
 impl Add {
-    pub async fn handle(self, store: &mut Store, writer: &mut impl Write) -> anyhow::Result<i64> {
+    pub async fn handle(self, store: &mut Store, writer: &mut impl Write) -> anyhow::Result<Key> {
         match self.cmd {
             Command::Resume { name } => {
                 let resume = model::Resume::new(name);
