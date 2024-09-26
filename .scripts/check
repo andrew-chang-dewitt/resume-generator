@@ -1,0 +1,4 @@
+#!/bin/bash
+
+cargo sqlx prepare
+cargo clippy -- -W clippy::pedantic
