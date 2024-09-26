@@ -1,3 +1,11 @@
+/// A collection data structure for caching application data in memory.
+///
+/// TODO:
+/// - [ ] impl Get from Store deferred down to Tempcaches on State 
+/// - [ ] impl a save method on Store
+/// - [ ] impl db logic on Get
+/// - [ ] some sort of Update or Modify trait
+/// - [ ] track Changes in vec on Store
 use std::collections::HashMap;
 
 use async_trait::async_trait;
