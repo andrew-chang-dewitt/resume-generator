@@ -1,6 +1,43 @@
 //! A tiny two-tuple implementation
+//
+// TODO:
+// - [ ] impl peek
+// - [ ] impl into iter, using peek
 
-use std::fmt::Debug;
+use std::{fmt::Debug, marker::PhantomData};
+
+/// Create an empty two-tuple
+///
+/// ## Example
+///
+/// ```
+/// todo!()
+/// ```
+pub fn ttuple_empty() -> Nil {
+    Nil()
+}
+
+/// Create a two-tuple from a single item
+///
+/// ## Example
+///
+/// ```
+/// todo!()
+/// ```
+pub fn ttuple_one<H: Sized + Debug + Eq>(initial: H) -> Ttuple<H, Nil> {
+    Ttuple::new(initial)
+}
+
+/// Create a two tuple from a new head & an existing two-tuple
+///
+/// ## Example
+///
+/// ```
+/// todo!()
+/// ```
+pub fn ttuple<H: Sized, T: HList>(head: H, tail: T) -> Ttuple<H, T> {
+    Ttuple(head, tail)
+}
 
 /// Core Ttuple behaviors.
 pub trait HList: Sized + Debug + Eq {
@@ -13,7 +50,7 @@ pub trait HList: Sized + Debug + Eq {
     }
 
     /// Add an item to the collection
-    fn prepend<H>(self, h: H) -> Ttuple<H, Self> {
+    fn prepend<H: Sized>(self, h: H) -> Ttuple<H, Self> {
         Ttuple(h, self)
     }
 }
@@ -32,15 +69,15 @@ impl From<()> for Nil {
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-struct Ttuple<H, T: HList = Nil>(H, T);
+struct Ttuple<H: Sized, T = Nil>(H, T);
 
-impl<H> Ttuple<H> {
+impl<H: Sized> Ttuple<H> {
     fn new(head: H) -> Self {
         Ttuple(head, Nil())
     }
 }
 
-impl<H: Debug + Eq, T: HList> HList for Ttuple<H, T> {
+impl<H: Sized + Debug + Eq, T: HList> HList for Ttuple<H, T> {
     const LEN: usize = 1 + <T as HList>::LEN;
 }
 
@@ -51,16 +88,54 @@ impl<H: Debug + Eq, T: HList> HList for Ttuple<H, T> {
 //     }
 // }
 
-pub fn ttuple_empty() -> Nil {
-    Nil()
+/// Borrow the first item from a two-tuple matching a given type
+trait Get<T, I> {
+    fn get(&self) -> &T;
+    fn get_mut(&mut self) -> &mut T;
 }
 
-pub fn ttuple_one<I: Debug + Eq>(initial: I) -> Ttuple<I, Nil> {
-    Ttuple::new(initial)
+impl<H: Sized, Tail> Get<H, Here> for Ttuple<H, Tail> {
+    fn get(&self) -> &H {
+        &self.0
+    }
+
+    fn get_mut(&mut self) -> &mut H {
+        &mut self.0
+    }
 }
 
-pub fn ttuple<H, T: HList>(head: H, tail: T) -> Ttuple<H, T> {
-    Ttuple(head, tail)
+struct Here {
+    _priv: (),
+}
+
+impl<H, T, F, I> Get<F, There<I>> for Ttuple<H, T>
+where
+    H: Sized,
+    T: Get<F, I>,
+{
+    fn get(&self) -> &F {
+        self.1.get()
+    }
+
+    fn get_mut(&mut self) -> &mut F {
+        self.1.get_mut()
+    }
+}
+
+/// Destructively remove first item in list, returning it along with a new Ttuple made from the
+/// tail of the list
+trait Pop<H, T> {
+    fn pop(self) -> (H, T);
+}
+
+impl<H, T: HList> Pop<H, T> for Ttuple<H, T> {
+    fn pop(self) -> (H, T) {
+        (self.0, self.1)
+    }
+}
+
+struct There<T> {
+    _priv: PhantomData<T>,
 }
 
 #[cfg(test)]
@@ -101,6 +176,39 @@ mod tests {
 
     #[test]
     fn test_can_borrow_items_by_type() {
-        todo!()
+        let tmp = Vec::from([1i32, 2, 3]);
+        let t = ttuple(2i32, ttuple(("first"), ttuple_one(tmp)));
+        let two: &i32 = t.get();
+        let one: &&str = t.get();
+        assert_eq!(two, &2);
+        assert_eq!(one, &"first");
+    }
+
+    #[test]
+    fn test_can_mutably_borrow_items_by_type() {
+        let mut tmp = Vec::from([1i32, 2, 3]);
+        let mut t = ttuple(2i32, ttuple("first", ttuple_one(tmp)));
+        *t.get_mut() = 3;
+        *t.get_mut() = "updated";
+        let mut v: &mut Vec<i32> = t.get_mut();
+        for i in 0..v.len() {
+            v[i] *= 2
+        }
+        assert_eq!(
+            t,
+            ttuple(3i32, ttuple("updated", ttuple_one(vec![2i32, 4, 6])))
+        );
+    }
+
+    #[test]
+    fn test_can_pop_head() {
+        let tmp = Vec::from([1i32, 2, 3]);
+        let tt = ttuple(2i32, ttuple("first", ttuple_one(tmp)));
+        let (h, t) = tt.pop();
+        assert_eq!(h, 2);
+        assert_eq!(t, ttuple("first", ttuple_one(vec![1i32, 2, 3])));
+        let (i, u) = t.pop();
+        assert_eq!(i, "first");
+        assert_eq!(u, ttuple_one(vec![1i32, 2, 3]));
     }
 }
