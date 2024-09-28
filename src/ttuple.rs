@@ -142,6 +142,17 @@ impl<H, T: HList> Pop<H, T> for Ttuple<H, T> {
     }
 }
 
+/// Look at the first item on the list by borrowing it without altering the list
+trait Peek<H> {
+    fn peek(&self) -> &H;
+}
+
+impl<H, T> Peek<H> for Ttuple<H, T> {
+    fn peek(&self) -> &H {
+        &self.0
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
