@@ -104,10 +104,6 @@ impl<H: Sized, Tail> Get<H, Here> for Ttuple<H, Tail> {
     }
 }
 
-struct Here {
-    _priv: (),
-}
-
 impl<H, T, F, I> Get<F, There<I>> for Ttuple<H, T>
 where
     H: Sized,
@@ -122,6 +118,18 @@ where
     }
 }
 
+/// Type for matching the index when the head 
+/// is the type requested by Getter::get
+struct Here {
+    _priv: (),
+}
+
+/// Type for matching the index when the type 
+// requested by Getter::get is not in the head
+struct There<T> {
+    _priv: PhantomData<T>,
+}
+
 /// Destructively remove first item in list, returning it along with a new Ttuple made from the
 /// tail of the list
 trait Pop<H, T> {
@@ -132,10 +140,6 @@ impl<H, T: HList> Pop<H, T> for Ttuple<H, T> {
     fn pop(self) -> (H, T) {
         (self.0, self.1)
     }
-}
-
-struct There<T> {
-    _priv: PhantomData<T>,
 }
 
 #[cfg(test)]
