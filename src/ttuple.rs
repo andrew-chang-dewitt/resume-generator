@@ -1,8 +1,12 @@
 //! A tiny two-tuple implementation
 //
 // TODO:
-// - [ ] impl peek
+// - [x] impl peek
+// - [ ] impl from (), (x, ...)
 // - [ ] impl into iter, using peek
+// - [ ] impl extend
+// - [ ] impl + operator using extend
+// - [ ] impl pluck
 
 use std::{fmt::Debug, marker::PhantomData};
 
