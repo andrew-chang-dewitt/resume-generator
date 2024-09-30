@@ -67,7 +67,9 @@ where
     TailInto: HList + From<TailFrom>,
 {
     fn from((h, t): (Head, TailFrom)) -> Self {
-        todo!()
+        let tail: TailInto = t.into();
+        
+        tail.prepend(h)
     }
 }
 
