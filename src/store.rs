@@ -14,12 +14,6 @@ use sqlx::SqlitePool;
 use crate::model;
 
 /// A data store, containing application state & handling db updates.
-///
-/// ## Example
-///
-/// ```
-/// todo!()
-/// ```
 #[derive(Debug)]
 pub struct Store {
     pool: SqlitePool,
