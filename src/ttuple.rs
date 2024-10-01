@@ -3,11 +3,17 @@
 // TODO:
 // - [x] impl peek
 // - [x] impl + operator
-// - [ ] impl pluck
 // - [ ] impl get_all
+// Maybe?:
+// - [ ] impl pluck
 // - [ ] impl pluck_all
 
-use std::{fmt::Debug, marker::PhantomData, ops::Add};
+use std::{
+    any::{Any, TypeId},
+    fmt::Debug,
+    marker::PhantomData,
+    ops::Add,
+};
 
 /// Core Ttuple list behaviors.
 ///
@@ -54,72 +60,32 @@ impl<H: Sized + Debug + Eq, T: HList> HList for Ttuple<H, T> {
     const LEN: usize = 1 + <T as HList>::LEN;
 }
 
-// impl From<()> for Nil {
-//     fn from(_: ()) -> Self {
-//         Nil()
-//     }
-// }
-
-// impl<H> From<(H, ())> for Ttuple<H> {
-//     fn from((h, _): (H, ())) -> Self {
-//         Ttuple(h, Nil())
-//     }
-// }
-//
-// impl<Head, TailFrom, TailInto> From<(Head, TailFrom)> for Ttuple<Head, TailInto>
-// where
-//     TailInto: HList + From<TailFrom>,
-// {
-//     fn from((h, t): (Head, TailFrom)) -> Self {
-//         let tail: TailInto = t.into();
-//
-//         tail.prepend(h)
-//     }
-// }
-//
-// #[test]
-// fn create_ttuple_from_tuple() {
-//     // let n = ();
-//     // assert_eq!(Nil::from(n), Nil());
-//
-//     let one = (1, ());
-//     assert_eq!(Ttuple::from(one), Ttuple(1, Nil()));
-//
-//     let t = (2i32, ("first", (vec![1i32, 2, 3], (Some(false), ()))));
-//     let tt = Ttuple::from(t);
-//     assert_eq!(tt.0, 2i32,);
-//     assert_eq!((tt.1).0, "first",);
-//     assert_eq!(((tt.1).1).0, vec![1i32, 2, 3],);
-//     assert_eq!((((tt.1).1).1).0, Some(false),);
-//     assert_eq!(((((tt.1).1).1).1).0, Nil(),);
-// }
-
 /// Borrow the first item from a two-tuple matching a given type
-trait Get<T, I> {
-    fn get(&self) -> &T;
-    fn get_mut(&mut self) -> &mut T;
+trait Get<Select, Index> {
+    fn get(&self) -> &Select;
+    fn get_mut(&mut self) -> &mut Select;
 }
 
-impl<H: Sized, Tail> Get<H, Here> for Ttuple<H, Tail> {
-    fn get(&self) -> &H {
+impl<FromHead: Sized, Tail> Get<FromHead, Here> for Ttuple<FromHead, Tail> {
+    fn get(&self) -> &FromHead {
         &self.0
     }
 
-    fn get_mut(&mut self) -> &mut H {
+    fn get_mut(&mut self) -> &mut FromHead {
         &mut self.0
     }
 }
 
-impl<H, T, F, I> Get<F, There<I>> for Ttuple<H, T>
+impl<Head, Tail, FromTail, Index> Get<FromTail, There<Index>> for Ttuple<Head, Tail>
 where
-    H: Sized,
-    T: Get<F, I>,
+    Head: Sized,
+    Tail: Get<FromTail, Index>,
 {
-    fn get(&self) -> &F {
+    fn get(&self) -> &FromTail {
         self.1.get()
     }
 
-    fn get_mut(&mut self) -> &mut F {
+    fn get_mut(&mut self) -> &mut FromTail {
         self.1.get_mut()
     }
 }
@@ -134,6 +100,75 @@ struct Here {
 // requested by Getter::get is not in the head
 struct There<T> {
     _priv: PhantomData<T>,
+}
+
+trait ContainsA {
+    fn contains_a(self, select_type: &dyn Any) -> bool;
+}
+
+impl ContainsA for Nil {
+    fn contains_a(self, select_type: &dyn Any) -> bool {
+        let t = select_type.type_id();
+        (TypeId::of::<Nil>() == t) || (TypeId::of::<()>() == t)
+    }
+}
+
+#[test]
+fn can_check_if_nil_contains_something() {
+    let t = Nil();
+
+    let boolean = t.contains_a(&true);
+    assert!(!boolean, "Nil can't contain a boolean");
+
+    let nil = t.contains_a(&Nil());
+    assert!(nil, "however, Nil can contain itself");
+
+    let nothing = t.contains_a(&());
+    assert!(nothing, "and () can be a shorthand for Nil");
+}
+
+impl<InHead: 'static, InTail> ContainsA for Ttuple<InHead, InTail>
+where
+    InTail: ContainsA,
+{
+    fn contains_a(self, select_type: &dyn Any) -> bool {
+        (TypeId::of::<InHead>() == select_type.type_id()) || self.1.contains_a(select_type)
+    }
+}
+
+#[test]
+fn can_check_if_contains_a_type() {
+    let t = Ttuple(1i32, Ttuple("str", Ttuple::new(false)));
+
+    let yes = t.contains_a(&true);
+    assert!(yes, "{t:#?} contains a boolean");
+
+    let no = t.contains_a(&String::new());
+    assert!(!no, "{t:#?} does not contain a String");
+
+    let nil = t.contains_a(&Nil());
+    assert!(nil, "all Ttuples always contain Nil");
+}
+
+#[test]
+fn contains_can_be_a_typeguard() {
+    let t = Ttuple::new(1i32);
+
+    if t.contains_a(&0i32) {
+        assert!(true, "{t:#?} contains an i32, this should be evaluated");
+    }
+
+    match t.contains_a(&"test") {
+        true => {
+            assert!(
+                false,
+                "{t:#?} does not contain a &str, this should not be evaluated"
+            );
+            // so this should still compile?
+            let _: &&str = t.get();
+        }
+        false => assert!(true, "{t:#? does not contain a &str}"),
+    }
 }
 
 /// Destructively remove first item in list, returning it along with a new Ttuple made from the
