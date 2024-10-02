@@ -267,6 +267,104 @@ fn get_some_can_be_used_to_check_if_ttuple_contains_type() {
 //     assert_eq!(sum, 3);
 // }
 
+/// A first stab at something that could support iterating over all elements in Ttuple of a
+/// Selected type
+/// FIXME: doesn't work currently w/out being able to type out full type contained in Rest...
+trait GetSomeAt<Select, Rest> {
+    fn get_at(&self) -> Option<(&Select, &Rest)>;
+}
+
+impl<NonexistantHead, NonexistantTail> GetSomeAt<NonexistantHead, NonexistantTail> for Nil {
+    fn get_at(&self) -> Option<(&NonexistantHead, &NonexistantTail)> {
+        None
+    }
+}
+
+#[cfg(test)]
+#[test]
+fn getting_at_anything_from_nil_gives_none() {
+    let n = Nil();
+    let g: Option<(&i32, &Nil)> = n.get_at();
+
+    if let Some(v) = g {
+        unreachable!("got `{v:#?}` when should've gotten `None`")
+    }
+
+    assert_eq!(g, None)
+}
+
+impl<Select, Rest, Head, Tail> GetSomeAt<Select, Rest> for Ttuple<Head, Tail>
+where
+    Select: 'static,
+    Head: Any,
+    Rest: 'static,
+    Tail: Any + GetSomeAt<Select, Rest>,
+{
+    fn get_at(&self) -> Option<(&Select, &Rest)> {
+        let any_head = &self.0 as &dyn Any;
+
+        match any_head.downcast_ref::<Select>() {
+            Some(selected) => {
+                let any_tail = &self.1 as &dyn Any;
+
+                match any_tail.downcast_ref::<Rest>() {
+                    Some(rest) => Some((&selected, &rest)),
+                    None => unreachable!("this shouldn't happen, i think?"),
+                }
+            }
+            None => self.1.get_at(),
+        }
+    }
+}
+
+// impl<FromHead, Tail> GetSomeAt<FromHead, Tail> for Ttuple<FromHead, Tail> {
+//     fn get_at(&self) -> Option<(&FromHead, &Tail)> {
+//         Some((&self.0, &self.1))
+//     }
+// }
+
+#[cfg(test)]
+#[test]
+fn can_get_arbitrary_type_at_head_and_tail_that_follows() {
+    let t = Ttuple(1i32, Ttuple("str", Ttuple(false, Ttuple::new(2i32))));
+
+    let (int, rest): (&i32, &_) = t.get_at().unwrap();
+    assert_eq!(int, &1);
+    assert_eq!(rest, &Ttuple("str", Ttuple(false, Ttuple::new(2i32))));
+
+    // let (second, _): (&i32, _) = rest.get_at().unwrap();
+    // assert_eq!(second, &2);
+}
+
+// impl<FromTail, Index, Rest, Head, Tail> GetAt<FromTail, There<Index>, Rest> for Ttuple<Head, Tail>
+// where
+//     Tail: GetAt<FromTail, Index, Rest>,
+// {
+//     fn get_at(&self) -> Option<(&FromTail, &Rest)> {
+//         self.1.get_at()
+//     }
+// }
+
+// #[cfg(test)]
+// #[test]
+// fn can_get_arbitrary_type_from_tail_and_tail_that_follows() {
+//     let t = Ttuple(1i32, Ttuple("str", Ttuple(false, Ttuple::new(2i32))));
+//
+//     let (string, rest): (&&str, &_) = t.get_at().unwrap();
+//     assert_eq!(string, &"a");
+//     assert_eq!(rest, &Ttuple(false, Ttuple::new(2i32)));
+// }
+
+// impl<Select, Head> GetAt<Select, Nil, Nowhere> for Ttuple<Head> {
+//     fn get_at(&self) -> Option<(&Select, &Nil)> {
+//         None
+//     }
+// }
+
+// struct Nowhere<T = ()> {
+//     _priv: T,
+// }
+
 /// Destructively remove first item in list, returning it along with a new Ttuple made from the
 /// tail of the list
 trait Pop<H, T> {
