@@ -8,12 +8,7 @@
 // - [ ] impl pluck
 // - [ ] impl pluck_all
 
-use std::{
-    any::{Any, TypeId},
-    fmt::Debug,
-    marker::PhantomData,
-    ops::Add,
-};
+use std::{any::Any, fmt::Debug, marker::PhantomData, ops::Add};
 
 /// Core Ttuple list behaviors.
 ///
@@ -24,15 +19,10 @@ use std::{
 /// - [ ] Get the length of a list
 /// - [ ] Iterate over a list?
 pub trait HList: Sized + Debug + Eq {
-    /// Return length of ttuple
-    const LEN: usize;
+    /// An HList knows it's length
+    fn len(&self) -> usize;
 
-    /// Get the length of the ttuple
-    fn len(&self) -> usize {
-        Self::LEN
-    }
-
-    /// Add an item to the collection
+    /// An HList can add an item to the collection
     fn prepend<H: Sized>(self, h: H) -> Ttuple<H, Self> {
         Ttuple(h, self)
     }
@@ -43,7 +33,9 @@ pub trait HList: Sized + Debug + Eq {
 pub struct Nil();
 
 impl HList for Nil {
-    const LEN: usize = 0;
+    fn len(&self) -> usize {
+        0
+    }
 }
 
 /// All lists are built of nested Ttuple instances
@@ -57,7 +49,9 @@ impl<H: Sized> Ttuple<H> {
 }
 
 impl<H: Sized + Debug + Eq, T: HList> HList for Ttuple<H, T> {
-    const LEN: usize = 1 + <T as HList>::LEN;
+    fn len(&self) -> usize {
+        1 + <T as HList>::len(&self.1)
+    }
 }
 
 /// Borrow the first item from a two-tuple matching a given type
@@ -102,74 +96,176 @@ struct There<T> {
     _priv: PhantomData<T>,
 }
 
-trait ContainsA {
-    fn contains_a(self, select_type: &dyn Any) -> bool;
+#[cfg(test)]
+#[test]
+fn can_borrow_items_by_type() {
+    let t = Ttuple(
+        2i32,
+        Ttuple("first", Ttuple(vec![1i32, 2, 3], Ttuple::new(Some(false)))),
+    );
+    let two: &i32 = t.get();
+    let one: &&str = t.get();
+    assert_eq!(two, &2);
+    assert_eq!(one, &"first");
 }
 
-impl ContainsA for Nil {
-    fn contains_a(self, select_type: &dyn Any) -> bool {
-        let t = select_type.type_id();
-        (TypeId::of::<Nil>() == t) || (TypeId::of::<()>() == t)
+#[cfg(test)]
+#[test]
+fn can_mutably_borrow_items_by_type() {
+    let tmp = Vec::from([1i32, 2, 3]);
+    let mut t = Ttuple(2i32, Ttuple("first", Ttuple::new(tmp)));
+    *t.get_mut() = 3;
+    *t.get_mut() = "updated";
+    let v: &mut Vec<i32> = t.get_mut();
+    for i in 0..v.len() {
+        v[i] *= 2
+    }
+    assert_eq!(
+        t,
+        Ttuple(3i32, Ttuple("updated", Ttuple::new(vec![2i32, 4, 6])))
+    );
+}
+
+trait GetSome<Select> {
+    fn get_some(&self) -> Option<&Select>;
+    fn get_some_mut(&mut self) -> Option<&mut Select>;
+}
+
+impl<Nonexistant> GetSome<Nonexistant> for Nil {
+    fn get_some(&self) -> Option<&Nonexistant> {
+        None
+    }
+
+    fn get_some_mut(&mut self) -> Option<&mut Nonexistant> {
+        None
     }
 }
 
+#[cfg(test)]
 #[test]
-fn can_check_if_nil_contains_something() {
-    let t = Nil();
+fn getting_anything_from_nil_gives_none() {
+    let n = Nil();
+    let g: Option<&i32> = n.get_some();
 
-    let boolean = t.contains_a(&true);
-    assert!(!boolean, "Nil can't contain a boolean");
+    if let Some(v) = g {
+        unreachable!("got `{v:#?}` when should've gotten `None`")
+    }
 
-    let nil = t.contains_a(&Nil());
-    assert!(nil, "however, Nil can contain itself");
-
-    let nothing = t.contains_a(&());
-    assert!(nothing, "and () can be a shorthand for Nil");
+    assert_eq!(g, None)
 }
 
-impl<InHead: 'static, InTail> ContainsA for Ttuple<InHead, InTail>
+impl<Select, Head, Tail> GetSome<Select> for Ttuple<Head, Tail>
 where
-    InTail: ContainsA,
+    Select: 'static,
+    Head: Any,
+    Tail: HList + GetSome<Select>,
 {
-    fn contains_a(self, select_type: &dyn Any) -> bool {
-        (TypeId::of::<InHead>() == select_type.type_id()) || self.1.contains_a(select_type)
+    fn get_some(&self) -> Option<&Select> {
+        let any_head = &self.0 as &dyn Any;
+
+        match any_head.downcast_ref::<Select>() {
+            Some(selected) => Some(&selected),
+            None => self.1.get_some(),
+        }
+    }
+
+    fn get_some_mut(&mut self) -> Option<&mut Select> {
+        let any_head = &mut self.0 as &mut dyn Any;
+
+        match any_head.downcast_mut::<Select>() {
+            Some(selected) => Some(selected),
+            None => self.1.get_some_mut(),
+        }
     }
 }
 
+#[cfg(test)]
 #[test]
-fn can_check_if_contains_a_type() {
+fn can_get_some_from_head() {
+    let t = Ttuple(1i32, Nil());
+    let g: Option<&i32> = t.get_some();
+
+    if let Some(v) = g {
+        assert_eq!(v, &1i32)
+    } else {
+        unreachable!("got `{g:#?}` when should've gotten `1i32`")
+    }
+}
+
+#[cfg(test)]
+#[test]
+fn can_get_none_if_not_in_ttuple() {
+    let t = Ttuple(1i32, Ttuple(true, Nil()));
+    let g: Option<&&str> = t.get_some();
+
+    if let Some(v) = g {
+        unreachable!("got `{v:#?}` when should've gotten `None`")
+    } else {
+        assert_eq!(g, None)
+    }
+}
+
+#[cfg(test)]
+#[test]
+fn get_some_can_be_used_to_check_if_ttuple_contains_type() {
     let t = Ttuple(1i32, Ttuple("str", Ttuple::new(false)));
 
-    let yes = t.contains_a(&true);
-    assert!(yes, "{t:#?} contains a boolean");
+    let yes: Option<&bool> = t.get_some();
+    if let Some(_) = yes {
+        assert!(true, "{t:#?} contains a boolean");
+    };
 
-    let no = t.contains_a(&String::new());
-    assert!(!no, "{t:#?} does not contain a String");
+    let no: Option<&String> = t.get_some();
+    if let None = no {
+        assert!(true, "{t:#?} does not contain a String");
+    };
 
-    let nil = t.contains_a(&Nil());
-    assert!(nil, "all Ttuples always contain Nil");
+    let nil: Option<&Nil> = t.get_some();
+    if let Some(_) = nil {
+        assert!(true, "all Ttuples always contain Nil");
+    };
 }
 
-#[test]
-fn contains_can_be_a_typeguard() {
-    let t = Ttuple::new(1i32);
-
-    if t.contains_a(&0i32) {
-        assert!(true, "{t:#?} contains an i32, this should be evaluated");
-    }
-
-    match t.contains_a(&"test") {
-        true => {
-            assert!(
-                false,
-                "{t:#?} does not contain a &str, this should not be evaluated"
-            );
-            // so this should still compile?
-            let _: &&str = t.get();
-        }
-        false => assert!(true, "{t:#? does not contain a &str}"),
-    }
-}
+// TODO:
+// the below can't work because there's no good way to advance to the tail w/out recursing
+// think we need to make a GetAll or Iterator trait that depends on GetSome and recursively calls
+// GetSome on the tail--this'll need some way of tracking where we are still though--maybe using
+// Here & There<I>? Not sure yet, this'll take some thought...
+// #[cfg(test)]
+// #[test]
+// fn get_some_can_be_used_to_loop_over_all_of_type() {
+//     let t = Ttuple(1i32, Ttuple("str", Ttuple(false, Ttuple::new(2i32))));
+//
+//     let mut sum = 0;
+//     let mut keep_going = true;
+//     let mut count = 0;
+//
+//     loop {
+//         println!("loop iteration START");
+//         println!("sum is {sum:#?}");
+//         println!("count is {count:#?}");
+//         let int = t.get_some();
+//         println!("int is {int:#?}");
+//         if let Some(i) = int {
+//             println!("inside if let Some(int) w/ {i:#?}");
+//             sum += i;
+//         } else {
+//             keep_going = false;
+//         }
+//         println!("loop iteration END");
+//
+//         count += 1;
+//
+//         if !keep_going || count > 10 {
+//             println!("loop BREAK");
+//             println!("sum is {sum:#?}");
+//             println!("count is {count:#?}");
+//             break;
+//         }
+//     }
+//
+//     assert_eq!(sum, 3);
+// }
 
 /// Destructively remove first item in list, returning it along with a new Ttuple made from the
 /// tail of the list
@@ -183,6 +279,19 @@ impl<H, T: HList> Pop<H, T> for Ttuple<H, T> {
     }
 }
 
+#[cfg(test)]
+#[test]
+fn can_pop_head() {
+    let tmp = Vec::from([1i32, 2, 3]);
+    let tt = Ttuple(2i32, Ttuple("first", Ttuple::new(tmp)));
+    let (h, t) = tt.pop();
+    assert_eq!(h, 2);
+    assert_eq!(t, Ttuple("first", Ttuple::new(vec![1i32, 2, 3])));
+    let (i, u) = t.pop();
+    assert_eq!(i, "first");
+    assert_eq!(u, Ttuple::new(vec![1i32, 2, 3]));
+}
+
 /// Look at the first item on the list by borrowing it without altering the list
 trait Peek<H> {
     fn peek(&self) -> &H;
@@ -192,6 +301,19 @@ impl<H, T> Peek<H> for Ttuple<H, T> {
     fn peek(&self) -> &H {
         &self.0
     }
+}
+
+#[cfg(test)]
+#[test]
+fn can_peek_head() {
+    let tmp = Vec::from([1i32, 2, 3]);
+    let tt = Ttuple(2i32, Ttuple("first", Ttuple::new(tmp)));
+    let h = tt.peek();
+    assert_eq!(h, &2);
+    assert_eq!(
+        tt,
+        Ttuple(2i32, Ttuple("first", Ttuple::new(vec![1i32, 2, 3])))
+    );
 }
 
 /// Ttuples can be concatenated using Add operator
@@ -219,124 +341,71 @@ where
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
+#[test]
+fn nil_extends_nil() {
+    let n1 = Nil();
+    let n2 = Nil();
 
-    #[test]
-    fn can_borrow_items_by_type() {
-        let t = Ttuple(
-            2i32,
-            Ttuple("first", Ttuple(vec![1i32, 2, 3], Ttuple::new(Some(false)))),
-        );
-        let two: &i32 = t.get();
-        let one: &&str = t.get();
-        assert_eq!(two, &2);
-        assert_eq!(one, &"first");
-    }
+    assert_eq!(n1 + n2, Nil());
+}
 
-    #[test]
-    fn can_mutably_borrow_items_by_type() {
-        let tmp = Vec::from([1i32, 2, 3]);
-        let mut t = Ttuple(2i32, Ttuple("first", Ttuple::new(tmp)));
-        *t.get_mut() = 3;
-        *t.get_mut() = "updated";
-        let v: &mut Vec<i32> = t.get_mut();
-        for i in 0..v.len() {
-            v[i] *= 2
-        }
-        assert_eq!(
-            t,
-            Ttuple(3i32, Ttuple("updated", Ttuple::new(vec![2i32, 4, 6])))
-        );
-    }
+#[cfg(test)]
+#[test]
+fn ttuple_extends_nil() {
+    let n1 = Nil();
+    let t1 = Ttuple(
+        1i32,
+        Ttuple("first", Ttuple(vec![1i32, 2, 3], Ttuple::new(Some(false)))),
+    );
 
-    #[test]
-    fn can_pop_head() {
-        let tmp = Vec::from([1i32, 2, 3]);
-        let tt = Ttuple(2i32, Ttuple("first", Ttuple::new(tmp)));
-        let (h, t) = tt.pop();
-        assert_eq!(h, 2);
-        assert_eq!(t, Ttuple("first", Ttuple::new(vec![1i32, 2, 3])));
-        let (i, u) = t.pop();
-        assert_eq!(i, "first");
-        assert_eq!(u, Ttuple::new(vec![1i32, 2, 3]));
-    }
-
-    #[test]
-    fn can_peek_head() {
-        let tmp = Vec::from([1i32, 2, 3]);
-        let tt = Ttuple(2i32, Ttuple("first", Ttuple::new(tmp)));
-        let h = tt.peek();
-        assert_eq!(h, &2);
-        assert_eq!(
-            tt,
-            Ttuple(2i32, Ttuple("first", Ttuple::new(vec![1i32, 2, 3])))
-        );
-    }
-
-    #[test]
-    fn nil_extends_nil() {
-        let n1 = Nil();
-        let n2 = Nil();
-
-        assert_eq!(n1 + n2, Nil());
-    }
-
-    #[test]
-    fn ttuple_extends_nil() {
-        let n1 = Nil();
-        let t1 = Ttuple(
+    assert_eq!(
+        n1 + t1,
+        Ttuple(
             1i32,
             Ttuple("first", Ttuple(vec![1i32, 2, 3], Ttuple::new(Some(false)))),
-        );
+        )
+    );
+}
 
-        assert_eq!(
-            n1 + t1,
-            Ttuple(
-                1i32,
-                Ttuple("first", Ttuple(vec![1i32, 2, 3], Ttuple::new(Some(false)))),
-            )
-        );
-    }
+#[cfg(test)]
+#[test]
+fn nil_extends_ttuple() {
+    let n1 = Nil();
+    let t1 = Ttuple(
+        1i32,
+        Ttuple("first", Ttuple(vec![1i32, 2, 3], Ttuple::new(Some(false)))),
+    );
 
-    #[test]
-    fn nil_extends_ttuple() {
-        let n1 = Nil();
-        let t1 = Ttuple(
+    assert_eq!(
+        t1 + n1,
+        Ttuple(
             1i32,
             Ttuple("first", Ttuple(vec![1i32, 2, 3], Ttuple::new(Some(false)))),
-        );
+        )
+    );
+}
 
-        assert_eq!(
-            t1 + n1,
-            Ttuple(
-                1i32,
-                Ttuple("first", Ttuple(vec![1i32, 2, 3], Ttuple::new(Some(false)))),
-            )
-        );
-    }
+#[cfg(test)]
+#[test]
+fn ttuple_extends_ttuple() {
+    let t1 = Ttuple(
+        1i32,
+        Ttuple("first", Ttuple(vec![1i32, 2, 3], Ttuple::new(Some(false)))),
+    );
+    let t2 = Ttuple(2i32, Ttuple::new("second"));
+    let t3 = t1 + t2;
 
-    #[test]
-    fn ttuple_extends_ttuple() {
-        let t1 = Ttuple(
+    assert_eq!(
+        t3,
+        Ttuple(
             1i32,
-            Ttuple("first", Ttuple(vec![1i32, 2, 3], Ttuple::new(Some(false)))),
-        );
-        let t2 = Ttuple(2i32, Ttuple::new("second"));
-        let t3 = t1 + t2;
-
-        assert_eq!(
-            t3,
             Ttuple(
-                1i32,
+                "first",
                 Ttuple(
-                    "first",
-                    Ttuple(
-                        vec![1i32, 2, 3],
-                        Ttuple(Some(false), Ttuple(2i32, Ttuple::new("second")))
-                    )
+                    vec![1i32, 2, 3],
+                    Ttuple(Some(false), Ttuple(2i32, Ttuple::new("second")))
                 )
             )
-        );
-    }
+        )
+    );
 }
