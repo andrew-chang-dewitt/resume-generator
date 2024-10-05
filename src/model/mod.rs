@@ -4,8 +4,9 @@ use sqlx::SqlitePool;
 // pub mod skill;
 // pub use skill::Skill;
 
+//FIXME: maybe this should all be impl on the enum?
 #[async_trait]
-pub trait Model {
+pub trait ModelUnused {
     // pub trait Model<T: Clone>: Id<T> {
     type Output;
     async fn create(pool: &SqlitePool, name: &String) -> anyhow::Result<Self::Output>;
@@ -25,6 +26,16 @@ pub trait Model {
 //         id.clone()
 //     }
 // }
+
+#[derive(Debug)]
+pub enum Model {
+    Resume(Resume),
+}
+
+#[derive(Debug)]
+pub enum ModelKey<KeyType> {
+    Resume(KeyType),
+}
 
 #[derive(Debug)]
 pub struct Resume {
