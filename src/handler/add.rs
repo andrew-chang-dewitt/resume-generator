@@ -3,7 +3,8 @@ use std::io::Write;
 use clap::{Args, Subcommand};
 
 use crate::model;
-use crate::store::{Add as AddStore, Key, Store};
+use crate::state::{Create, Key};
+use crate::store::Store;
 
 #[derive(Debug, Args)]
 pub struct Add {
@@ -22,7 +23,7 @@ impl Add {
         match self.cmd {
             Command::Resume { name } => {
                 let resume = model::Resume::new(name);
-                Ok(store.add(resume))
+                Ok(store.create(resume))
             } // Command::Skill { name } => {
               //     let model::Skill {
               //         name: new_name,
