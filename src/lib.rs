@@ -5,6 +5,7 @@ use log::{debug, info};
 use sqlx::SqlitePool;
 use store::Store;
 
+mod changelist;
 mod handler;
 mod logging;
 mod model;
