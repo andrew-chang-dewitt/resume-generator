@@ -11,7 +11,7 @@ mod logging;
 mod model;
 mod state;
 mod store;
-mod ttuple;
+mod view;
 
 #[derive(Debug, Parser)]
 /// A Resume data storage & generation tool.
