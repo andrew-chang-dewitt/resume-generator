@@ -7,7 +7,7 @@ use crate::model;
 /// The basic structure of all data for entire app.
 ///
 /// Everything fits into one of a few specified data types, each with it's own cache.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct AppState {
     resume: TempCache<model::Resume>,
     contact: TempCache<model::Contact>,
@@ -79,7 +79,7 @@ impl Get<model::Contact, Key> for AppState {
 
 /// A db cache separating values found from the db (cache) from values that have yet to be saved
 /// to the db (temp). Tracks temporary key values in memory, providing value for the next item.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct TempCache<V> {
     next_tmp_key: i64,
     cache: HashMap<Key, V>,

@@ -26,7 +26,7 @@ pub trait DbModel {
 //     }
 // }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Resume {
     name: String,
 }
@@ -37,7 +37,7 @@ impl Resume {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Contact {
     display: String,
     href: String,
