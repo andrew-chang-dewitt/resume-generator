@@ -5,54 +5,58 @@
 //! This means a `ChangeList` is a series of atomic state change operations to which items are
 //! typically added by prepending to the head & removed by popping the most recently added value.
 #[derive(Debug)]
-pub struct ChangeList<SomeState: Clone>(Vec<Box<dyn ApplyTo<SomeState>>>);
+pub struct ChangeList<SomeState: Clone, Index>(Vec<Box<dyn ApplyTo<SomeState, Index>>>);
 
-impl<SomeState: Clone> ChangeList<SomeState> {
-    fn new() -> Self {
+impl<SomeState: Clone, Index> ChangeList<SomeState, Index> {
+    pub fn new() -> Self {
         Self(Vec::new())
     }
 
-    fn push<C>(&mut self, change: C)
+    pub fn push<C>(&mut self, change: C)
     where
-        C: ApplyTo<SomeState> + 'static,
+        C: ApplyTo<SomeState, Index> + 'static,
     {
         self.0.push(Box::new(change))
     }
 
-    fn pop_into(&mut self, other: &mut ChangeList<SomeState>) {
+    fn pop_into(&mut self, other: &mut ChangeList<SomeState, Index>) {
         if let Some(change) = self.0.pop() {
             other.0.push(change)
         }
     }
 
-    fn apply_all(&self, state: &SomeState) -> SomeState {
-        self.0.iter().fold(state.clone(), |s, c| (**c).apply_to(&s))
+    fn apply_all(&self, state: &mut SomeState) -> Vec<Index> {
+        self.apply_all_from(state, 0)
+    }
+
+    fn apply_all_from(&self, state: &mut SomeState, start: usize) -> Vec<Index> {
+        let to_apply = &self.0[start..];
+        let mut res = Vec::new();
+        for change in to_apply {
+            res.push((**change).apply_to(state));
+        }
+
+        res
     }
 }
 
-pub trait ApplyTo<SomeState>: std::fmt::Debug {
-    fn apply_to(&self, state: &SomeState) -> SomeState;
+pub trait ApplyTo<SomeState, Index>: std::fmt::Debug {
+    fn apply_to(&self, state: &mut SomeState) -> Index;
 }
 
-pub trait FromApply<C> {
-    fn from_apply(before: &Self, change: &C) -> Self;
+pub trait Apply<Change, Index> {
+    fn apply(&mut self, change: &Change) -> Index;
 }
 
-impl<S, C> ApplyTo<S> for C
+impl<S, I, C> ApplyTo<S, I> for C
 where
-    S: FromApply<C>,
+    S: Apply<C, I>,
     C: std::fmt::Debug,
 {
-    fn apply_to(&self, state: &S) -> S {
-        S::from_apply(state, self)
+    fn apply_to(&self, state: &mut S) -> I {
+        S::apply(state, self)
     }
 }
-
-// impl<SomeState: ApplyChange + std::fmt::Debug> ApplyTo<SomeState> for ChangeList<SomeState> {
-//     fn apply_to(&self, state: &SomeState) -> SomeState {
-//         self.changes.iter().fold(state, |s, c| s.apply(c))
-//     }
-// }
 
 #[cfg(test)]
 mod test_add_one {
@@ -80,11 +84,10 @@ mod test_add_one {
         }
     }
 
-    impl ApplyTo<Vec<String>> for String {
-        fn apply_to(&self, state: &Vec<String>) -> Vec<String> {
-            let mut res = state.clone();
-            res.push(self.clone());
-            res
+    impl ApplyTo<Vec<String>, usize> for String {
+        fn apply_to(&self, state: &mut Vec<String>) -> usize {
+            state.push(self.clone());
+            state.len() - 1
         }
     }
 
@@ -93,10 +96,11 @@ mod test_add_one {
         // starting with an empty State
         let start: Vec<String> = Vec::new();
         // and a list of 1 Change: adding a new item to the State
-        let mut changes: ChangeList<Vec<String>> = ChangeList::new();
+        let mut changes: ChangeList<Vec<String>, usize> = ChangeList::new();
         changes.push("added".to_string());
         // applying those changes should result in a State that contains the 1 item
-        let end = changes.apply_all(&start);
+        let mut end = start.clone();
+        changes.apply_all(&mut end);
 
         let expected = vec!["added"];
         assert_eq!(
@@ -110,10 +114,11 @@ mod test_add_one {
         // starting with a state containing some data already
         let start: Vec<String> = vec!["existing".into()];
         // and a list of 1 Change: adding a new item to the State
-        let mut changes: ChangeList<Vec<String>> = ChangeList::new();
+        let mut changes: ChangeList<Vec<String>, usize> = ChangeList::new();
         changes.push("new!".to_string());
         // applying those changes should result in a State that contains existing data, plus the 1 item
-        let end = changes.apply_all(&start);
+        let mut end = start.clone();
+        changes.apply_all(&mut end);
 
         let expected = vec!["existing", "new!"];
         assert_eq!(
@@ -122,11 +127,10 @@ mod test_add_one {
         );
     }
 
-    impl ApplyTo<Vec<String>> for (usize, String) {
-        fn apply_to(&self, state: &Vec<String>) -> Vec<String> {
-            let mut res = state.clone();
-            res[self.0] = self.1.clone();
-            res
+    impl ApplyTo<Vec<String>, usize> for (usize, String) {
+        fn apply_to(&self, state: &mut Vec<String>) -> usize {
+            state[self.0] = self.1.clone();
+            self.0
         }
     }
 
@@ -135,10 +139,11 @@ mod test_add_one {
         // starting with a state containing some data already
         let start: Vec<String> = vec!["existing".into()];
         // and a list of 1 Change: adding a new item to the State
-        let mut changes: ChangeList<Vec<String>> = ChangeList::new();
+        let mut changes: ChangeList<Vec<String>, usize> = ChangeList::new();
         changes.push((0, "altered!".to_string()));
         // applying those changes should result in a State that contains existing data, plus the 1 item
-        let end = changes.apply_all(&start);
+        let mut end = start.clone();
+        changes.apply_all(&mut end);
 
         let expected = vec!["altered!"];
         assert_eq!(
