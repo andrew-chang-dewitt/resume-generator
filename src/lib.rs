@@ -8,6 +8,7 @@ use store::Store;
 mod handler;
 mod logging;
 mod model;
+mod state;
 mod store;
 mod ttuple;
 

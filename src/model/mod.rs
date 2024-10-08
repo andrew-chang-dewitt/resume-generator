@@ -5,7 +5,7 @@ use sqlx::SqlitePool;
 // pub use skill::Skill;
 
 #[async_trait]
-pub trait Model {
+pub trait DbModel {
     // pub trait Model<T: Clone>: Id<T> {
     type Output;
     async fn create(pool: &SqlitePool, name: &String) -> anyhow::Result<Self::Output>;
@@ -34,5 +34,17 @@ pub struct Resume {
 impl Resume {
     pub fn new(name: String) -> Self {
         Self { name }
+    }
+}
+
+#[derive(Debug)]
+pub struct Contact {
+    display: String,
+    href: String,
+}
+
+impl Contact {
+    pub fn new(display: String, href: String) -> Self {
+        Self { display, href }
     }
 }
