@@ -10,7 +10,7 @@ use sqlx::SqlitePool;
 
 use crate::{
     model,
-    state::{AppState, Create, Key},
+    state::{AddNew, AppState, Key},
 };
 
 /// A data store, containing application state & handling db updates.
@@ -35,8 +35,8 @@ impl Store {
 }
 
 /// Add resumes to store, deferring to state.
-impl Create<model::Resume> for Store {
-    fn create(&mut self, value: model::Resume) -> Key {
-        self.state.create(value)
+impl AddNew<model::Resume, Key> for Store {
+    fn add_new(&mut self, value: model::Resume) -> Key {
+        self.state.add_new(value)
     }
 }

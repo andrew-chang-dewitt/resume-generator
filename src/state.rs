@@ -19,11 +19,14 @@ impl AppState {
     }
 }
 // create a single type to encapsulate all State behaviours
-pub trait State<V>: Create<V> + Get<V> {}
+pub trait State<Val, Idx>: AddNew<Val, Idx> + Get<Val, Idx> {}
 
 // then impl that type automatically for anything that impls all the behaviours
 // this greatly simplifies fn/type signatures for things that use/refer to States
-impl<S, V> State<V> for S where S: Create<V> + Get<V> {}
+impl<Anything, Val, Idx> State<Val, Idx> for Anything where
+    Anything: AddNew<Val, Idx> + Get<Val, Idx>
+{
+}
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Key {
@@ -31,56 +34,37 @@ pub enum Key {
     Db(i64),
 }
 
-pub trait Map: Clone {
-    type Item;
-    type Output;
-
-    fn map<F: Fn(&Self::Item) -> Self::Output>(&self, f: F) -> Self::Output;
-}
-
-impl Map for Key {
-    type Item = i64;
-    type Output = i64;
-
-    fn map<F: Fn(&Self::Item) -> Self::Output>(&self, f: F) -> Self::Output {
-        match self {
-            Self::Tmp(val) => f(val),
-            Self::Db(val) => f(val),
-        }
-    }
-}
-
 /// Add a new value to an implementing structure, returning the values new id number.
-pub trait Create<V> {
-    fn create(&mut self, value: V) -> Key;
+pub trait AddNew<Val, Idx> {
+    fn add_new(&mut self, value: Val) -> Idx;
 }
 
 #[async_trait]
-pub trait Get<V> {
-    async fn get(&self, key: &Key) -> Option<&V>;
+pub trait Get<Val, Idx> {
+    async fn get(&self, key: &Idx) -> Option<&Val>;
 }
 
-impl Create<model::Resume> for AppState {
-    fn create(&mut self, value: model::Resume) -> Key {
-        self.resume.create(value)
+impl AddNew<model::Resume, Key> for AppState {
+    fn add_new(&mut self, value: model::Resume) -> Key {
+        self.resume.add_new(value)
     }
 }
 
-impl Create<model::Contact> for AppState {
-    fn create(&mut self, value: model::Contact) -> Key {
-        self.contact.create(value)
+impl AddNew<model::Contact, Key> for AppState {
+    fn add_new(&mut self, value: model::Contact) -> Key {
+        self.contact.add_new(value)
     }
 }
 
 #[async_trait]
-impl Get<model::Resume> for AppState {
+impl Get<model::Resume, Key> for AppState {
     async fn get(&self, key: &Key) -> Option<&model::Resume> {
         self.resume.get(key).await
     }
 }
 
 #[async_trait]
-impl Get<model::Contact> for AppState {
+impl Get<model::Contact, Key> for AppState {
     async fn get(&self, key: &Key) -> Option<&model::Contact> {
         self.contact.get(key).await
     }
@@ -116,10 +100,10 @@ fn new_temp_cache_starts_empty() {
     assert_eq!(t.len(), 0, "{t:?} shouldn't have any items in it yet.");
 }
 
-impl<V> Create<V> for TempCache<V> {
+impl<V> AddNew<V, Key> for TempCache<V> {
     /// Add a new value to the cache.  Creates new items with a temp key, allowing them to be added to the
     /// database & the cache updated with their actual id value on save.
-    fn create(&mut self, value: V) -> Key {
+    fn add_new(&mut self, value: V) -> Key {
         let key = Key::Tmp(self.next_tmp_key);
         self.cache.insert(key, value);
         self.next_tmp_key;
@@ -129,15 +113,15 @@ impl<V> Create<V> for TempCache<V> {
 
 #[cfg(test)]
 #[test]
-fn temp_cache_can_create_new_values() {
+fn temp_cache_can_add_new_new_values() {
     let mut t = TempCache::<String>::new();
-    t.create("This is a new value".into());
+    t.add_new("This is a new value".into());
 
     assert_eq!(t.len(), 1, "{t:?} should have exactly one item in it.");
 }
 
 #[async_trait]
-impl<V: Sync> Get<V> for TempCache<V> {
+impl<V: Sync> Get<V, Key> for TempCache<V> {
     /// Extract a value with a matching id from the cache, or the underlying data store if not
     /// found in cache (updating the cache when found), or None if no matching value is found.
     async fn get(&self, key: &Key) -> Option<&V> {
@@ -156,7 +140,7 @@ impl<V: Sync> Get<V> for TempCache<V> {
 #[tokio::test]
 async fn can_get_items_from_temp_cache() {
     let mut t = TempCache::<String>::new();
-    let id = t.create("This is a new value".into());
+    let id = t.add_new("This is a new value".into());
     let gotten = t.get(&id).await;
 
     assert_eq!(gotten, Some(&"This is a new value".into()));
