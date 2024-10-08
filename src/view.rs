@@ -1,0 +1,1 @@
+//! just the beginning of a notion here, but a view should be anything that takes control of the user input, then yields it, either to another view or to an exit call?
