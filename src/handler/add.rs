@@ -24,15 +24,16 @@ impl Add {
             Command::Resume { name } => {
                 let resume = model::Resume::new(name);
                 Ok(store.add_new(resume))
-            } // Command::Skill { name } => {
-              //     let model::Skill {
-              //         name: new_name,
-              //         id: new_id,
-              //     } = model::Skill::add_new(pool, name).await?;
-              //     writeln!(writer, "New Skill, {new_name}, created with id {new_id}")?;
+            }
+            // Command::Skill { name } => {
+            //     let model::Skill {
+            //         name: new_name,
+            //         id: new_id,
+            //     } = model::Skill::add_new(pool, name).await?;
+            //     writeln!(writer, "New Skill, {new_name}, created with id {new_id}")?;
 
-              //     Ok(new_id)
-              // }
+            //     Ok(new_id)
+            // }
         }
     }
 }
