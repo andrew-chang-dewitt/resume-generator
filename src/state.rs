@@ -4,6 +4,9 @@ use async_trait::async_trait;
 
 use crate::model;
 
+/// The basic structure of all data for entire app.
+///
+/// Everything fits into one of a few specified data types, each with it's own cache.
 #[derive(Debug)]
 pub struct AppState {
     resume: TempCache<model::Resume>,
@@ -18,16 +21,19 @@ impl AppState {
         }
     }
 }
+
 // create a single type to encapsulate all State behaviours
 pub trait State<Val, Idx>: AddNew<Val, Idx> + Get<Val, Idx> {}
 
 // then impl that type automatically for anything that impls all the behaviours
 // this greatly simplifies fn/type signatures for things that use/refer to States
-impl<Anything, Val, Idx> State<Val, Idx> for Anything where
-    Anything: AddNew<Val, Idx> + Get<Val, Idx>
-{
-}
+impl<S, Val, Idx> State<Val, Idx> for S where S: AddNew<Val, Idx> + Get<Val, Idx> {}
 
+/// Most (maybe all?) data types use this key type.
+///
+/// By differentiating between temporary index values & those from the DB, key collisions
+/// are eliminated, yet items are allowed to exist in the cache that haven't been saved to the DB
+/// yet without having to know all possible keys that might be in the DB already.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Key {
     Tmp(i64),
@@ -39,6 +45,7 @@ pub trait AddNew<Val, Idx> {
     fn add_new(&mut self, value: Val) -> Idx;
 }
 
+/// Get a value matching the corresponding key & data type, if it exists.
 #[async_trait]
 pub trait Get<Val, Idx> {
     async fn get(&self, key: &Idx) -> Option<&Val>;
@@ -71,7 +78,7 @@ impl Get<model::Contact, Key> for AppState {
 }
 
 /// A db cache separating values found from the db (cache) from values that have yet to be saved
-/// to the db (temp).
+/// to the db (temp). Tracks temporary key values in memory, providing value for the next item.
 #[derive(Debug)]
 struct TempCache<V> {
     next_tmp_key: i64,
@@ -87,6 +94,7 @@ impl<V> TempCache<V> {
         }
     }
 
+    /// A temp cache knows it's length.
     fn len(&self) -> usize {
         self.cache.len()
     }
