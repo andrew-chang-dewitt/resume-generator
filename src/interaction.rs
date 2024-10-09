@@ -27,3 +27,14 @@
 //! |
 //! |- gen -> pick resume, format, save path -> preview as md in less -> save
 //! ```
+//!
+//! An interaction is then anything that can do the following:
+//! - render some sort of interface to the user
+//! - resolve to a Result to be handled by the caller
+//!
+//! As such, an interaction is simply a step w/in the larger application state machine, possibly
+//! each one its own sub-machine. The larger machine decides which interaction to enter & when
+//! (using a routing state machine?), provides necessary data to each interaction, & updates app
+//! state w/ data returned by each interaction.
+//!
+//! Really leads well to a Routing state machine, so let's go bikeshed on that for a bit!
