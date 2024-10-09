@@ -7,11 +7,11 @@ use store::Store;
 
 mod changelist;
 mod handler;
+mod interaction;
 mod logging;
 mod model;
 mod state;
 mod store;
-mod view;
 
 #[derive(Debug, Parser)]
 /// A Resume data storage & generation tool.
