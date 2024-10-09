@@ -10,6 +10,7 @@ mod handler;
 mod interaction;
 mod logging;
 mod model;
+mod router;
 mod state;
 mod store;
 
