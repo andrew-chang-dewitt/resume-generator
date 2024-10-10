@@ -12,7 +12,7 @@ async fn motivating_example() -> anyhow::Result<()> {
     enum RoutesTable {
         Somewhere,
         AfterSomewhere,
-        GoingDeeper(ANestedRouter),
+        GoingDeeper(NestedRoutes),
         Exit,
     }
 
@@ -22,44 +22,39 @@ async fn motivating_example() -> anyhow::Result<()> {
     // that Matchers return a <Route> in each match arm instead and call my handlers in the match
     // arms, even if they're defined elsewhere...
     impl Matcher for RoutesTable {
-        fn match_path(&self) -> RouteHandler<RoutesTable> {
+        fn match_path(&self) -> anyhow::Result<RoutesTable> {
             match self {
-                Self::Somewhere => RouteHandler::new(|| async { Ok(Self::AfterSomewhere) }),
-                Self::AfterSomewhere => {
-                    RouteHandler::new(|| async { Ok(Self::GoingDeeper(ANestedRouter::WentDeep)) })
-                }
+                Self::Somewhere => Ok(Self::AfterSomewhere),
+                Self::AfterSomewhere => Ok(Self::GoingDeeper(NestedRoutes::WentDeep)),
                 Self::GoingDeeper(deeper) => deeper.match_path(),
-                Self::Exit => RouteHandler::new(|| async { Err(anyhow!("Time to quit")) }),
+                Self::Exit => Err(anyhow!("Time to quit")),
             }
         }
     }
 
     #[derive(Debug, PartialEq)]
-    enum ANestedRouter {
+    enum NestedRoutes {
         WentDeep,
     }
 
-    impl Matcher<RoutesTable> for ANestedRouter {
-        fn match_path(&self) -> RouteHandler<RoutesTable> {
-            RouteHandler::new(|| async { Ok(RoutesTable::Exit) })
+    impl Matcher<RoutesTable> for NestedRoutes {
+        fn match_path(&self) -> anyhow::Result<RoutesTable> {
+            Ok(RoutesTable::Exit)
         }
     }
 
     let mut router = Router::new(RoutesTable::Somewhere);
 
-    let somewhere_handler = router.init();
-    let after_somewhere = somewhere_handler();
+    let after_somewhere = router.init()?;
     assert_eq!(after_somewhere, RoutesTable::AfterSomewhere);
 
-    let after_somewhere_handler = router.navigate(after_somewhere);
-    let last_location = after_somewhere_handler();
+    let last_location = router.navigate(after_somewhere)?;
     assert_eq!(
         last_location,
-        RoutesTable::GoingDeeper(ANestedRouter::WentDeep)
+        RoutesTable::GoingDeeper(NestedRoutes::WentDeep)
     );
 
-    let last_handler = router.navigate(last_location);
-    let should_be_exit = last_handler();
+    let should_be_exit = router.navigate(last_location)?;
     assert_eq!(should_be_exit, RoutesTable::Exit);
 
     Ok(())
@@ -91,24 +86,24 @@ impl<Routes: Matcher> Router<Routes> {
         }
     }
 
-    fn init(&self) -> RouteHandler<Routes> {
+    fn init(&self) -> anyhow::Result<Routes> {
         self.match_path()
     }
 
-    fn navigate(&mut self, path: Routes) -> RouteHandler<Routes> {
+    fn navigate(&mut self, path: Routes) -> anyhow::Result<Routes> {
         self.location = path;
         self.match_path()
     }
 }
 
 impl<Routes: Matcher> Matcher<Routes, Routes> for Router<Routes> {
-    fn match_path(&self) -> RouteHandler<Routes> {
+    fn match_path(&self) -> anyhow::Result<Routes> {
         self.location.match_path()
     }
 }
 
 pub trait Matcher<Root = Self, Routes = Self> {
-    fn match_path(&self) -> RouteHandler<Root>;
+    fn match_path(&self) -> anyhow::Result<Root>;
 }
 
 type Handler<R> = Box<dyn Fn() -> HandlerReturn<R> + Send + Sync + 'static>;
