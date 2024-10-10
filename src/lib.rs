@@ -48,19 +48,10 @@ pub struct App {
 impl App {
     /// Create an application instance from parsed arguments
     pub async fn new(args: Args) -> anyhow::Result<Self> {
+        // create config obj from args
+        let config = AppConfig::try_new(&args)?;
         // save command for later
         let cmd = args.cmd;
-        // create config obj from args
-        let config = AppConfig {
-            dburl: match args.dburl {
-                Some(s) => s,
-                None => env::var("DATABASE_URL")?,
-            },
-            verbose: match args.verbose {
-                Some(v) => v,
-                None => Verbosity::Error,
-            },
-        };
         // setup logging
         logging::initialize(&config.verbose)?;
         info!("Logging initalized.");
@@ -93,6 +84,21 @@ pub struct AppConfig {
     dburl: String,
     /// Adjust output verbosity, defaults to only output errors
     verbose: Verbosity,
+}
+
+impl AppConfig {
+    fn try_new(args: &Args) -> anyhow::Result<AppConfig> {
+        let dburl = match &args.dburl {
+            Some(s) => s.to_owned(),
+            None => env::var("DATABASE_URL")?,
+        };
+        let verbose = match &args.verbose {
+            Some(v) => v.to_owned(),
+            None => Verbosity::Error,
+        };
+
+        Ok(Self { dburl, verbose })
+    }
 }
 
 #[derive(Clone, Debug, ValueEnum)]
