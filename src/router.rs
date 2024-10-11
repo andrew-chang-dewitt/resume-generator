@@ -3,73 +3,6 @@
 
 use std::{error::Error, fmt::write, future::Future, marker::PhantomData};
 
-#[cfg(test)]
-mod tests {
-    use anyhow::anyhow;
-
-    use super::*;
-
-    #[derive(Debug, PartialEq)]
-    enum RoutesTable {
-        Somewhere,
-        AfterSomewhere,
-        GoingDeeper(NestedRoutes),
-        Exit,
-    }
-
-    impl Matcher for RoutesTable {
-        fn match_path(&self) -> anyhow::Result<RoutesTable> {
-            match self {
-                // these match arms should really call handlers described elsewhere
-                // or just execute simple expressions in place
-                Self::Somewhere => Ok(Self::AfterSomewhere),
-                Self::AfterSomewhere => Ok(Self::GoingDeeper(NestedRoutes::WentDeep)),
-                Self::GoingDeeper(deeper) => deeper.match_path(),
-                Self::Exit => Err(anyhow!("Time to quit.")),
-            }
-        }
-    }
-
-    #[derive(Debug, PartialEq)]
-    enum NestedRoutes {
-        WentDeep,
-    }
-
-    impl Matcher<RoutesTable> for NestedRoutes {
-        fn match_path(&self) -> anyhow::Result<RoutesTable> {
-            Ok(RoutesTable::Exit)
-        }
-    }
-
-    #[tokio::test]
-    async fn motivating_example() -> anyhow::Result<()> {
-        let mut router = Router::new(RoutesTable::Somewhere);
-
-        let after_somewhere = router.init()?;
-        assert_eq!(after_somewhere, RoutesTable::AfterSomewhere);
-
-        let last_location = router.navigate(after_somewhere)?;
-        assert_eq!(
-            last_location,
-            RoutesTable::GoingDeeper(NestedRoutes::WentDeep)
-        );
-
-        let should_be_exit = router.navigate(last_location)?;
-        assert_eq!(should_be_exit, RoutesTable::Exit);
-
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn router_processing_loop() {
-        match Router::run(RoutesTable::Somewhere) {
-            Err(RouterError::Exit(s)) => assert_eq!(&s, "Time to quit."),
-            Err(e) => panic!("Threw non-exit error: {e:?}"),
-            Ok(v) => panic!("Ended as Ok({v:?}) when expected Err('Time to quit.')"),
-        }
-    }
-}
-
 pub struct Router<Routes: Matcher, ErrHandler = DefaultErrorHandler> {
     location: Routes,
     err_handler: PhantomData<ErrHandler>,
@@ -139,4 +72,71 @@ impl<Routes: Matcher> Matcher<Routes, Routes> for Router<Routes> {
 
 pub trait Matcher<Root = Self, Routes = Self> {
     fn match_path(&self) -> anyhow::Result<Root>;
+}
+
+#[cfg(test)]
+mod tests {
+    use anyhow::anyhow;
+
+    use super::*;
+
+    #[derive(Debug, PartialEq)]
+    enum RoutesTable {
+        Somewhere,
+        AfterSomewhere,
+        GoingDeeper(NestedRoutes),
+        Exit,
+    }
+
+    impl Matcher for RoutesTable {
+        fn match_path(&self) -> anyhow::Result<RoutesTable> {
+            match self {
+                // these match arms should really call handlers described elsewhere
+                // or just execute simple expressions in place
+                Self::Somewhere => Ok(Self::AfterSomewhere),
+                Self::AfterSomewhere => Ok(Self::GoingDeeper(NestedRoutes::WentDeep)),
+                Self::GoingDeeper(deeper) => deeper.match_path(),
+                Self::Exit => Err(anyhow!("Time to quit.")),
+            }
+        }
+    }
+
+    #[derive(Debug, PartialEq)]
+    enum NestedRoutes {
+        WentDeep,
+    }
+
+    impl Matcher<RoutesTable> for NestedRoutes {
+        fn match_path(&self) -> anyhow::Result<RoutesTable> {
+            Ok(RoutesTable::Exit)
+        }
+    }
+
+    #[tokio::test]
+    async fn motivating_example() -> anyhow::Result<()> {
+        let mut router = Router::new(RoutesTable::Somewhere);
+
+        let after_somewhere = router.init()?;
+        assert_eq!(after_somewhere, RoutesTable::AfterSomewhere);
+
+        let last_location = router.navigate(after_somewhere)?;
+        assert_eq!(
+            last_location,
+            RoutesTable::GoingDeeper(NestedRoutes::WentDeep)
+        );
+
+        let should_be_exit = router.navigate(last_location)?;
+        assert_eq!(should_be_exit, RoutesTable::Exit);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn router_processing_loop() {
+        match Router::run(RoutesTable::Somewhere) {
+            Err(RouterError::Exit(s)) => assert_eq!(&s, "Time to quit."),
+            Err(e) => panic!("Threw non-exit error: {e:?}"),
+            Ok(v) => panic!("Ended as Ok({v:?}) when expected Err('Time to quit.')"),
+        }
+    }
 }
