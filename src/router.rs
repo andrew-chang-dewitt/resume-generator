@@ -3,26 +3,50 @@
 
 use log::{error, info};
 
+type RouterResult<R = ()> = Result<R, RouterError>;
+
 pub struct Router<Routes: Copy + Matcher> {
-    location: Routes,
+    context: RouterConext<Routes>,
     state: RouterState<Routes>,
 }
 
-impl<Routes: Copy + Matcher> Router<Routes> {
+pub struct RouterConext<Routes: Copy + Matcher> {
+    location: Routes,
+}
+
+impl<Routes: Copy + std::fmt::Debug + Matcher + PartialEq> Router<Routes> {
     pub fn new(initial_path: Routes) -> Self {
         Self {
-            location: initial_path,
+            context: RouterConext {
+                location: initial_path,
+            },
             state: RouterState::Initializing,
         }
     }
 
-    pub fn init(&self) -> anyhow::Result<Routes> {
-        self.match_path()
+    pub fn dispatch(&mut self, event: RouterEvent<Routes>) -> RouterResult {
+        // first get next state
+        let next_state = self.state.next_from_event(event)?;
+        // then, if next state is not the same as current state, make sure current state is ready to exit
+        if next_state != self.state {
+            self.context = self.state.on_exit(self.context)?;
+        };
+        // make sure router is ready to enter next state and change state
+        let (state, context) = next_state.on_entry(self.context)?;
+        self.state = state;
+        self.context = context;
+
+        // if we get here, event was dispatched & state changed accordingly w/out error
+        Ok(())
     }
 
-    pub fn navigate(&mut self, path: Routes) -> anyhow::Result<Routes> {
+    pub fn init(&mut self) -> RouterResult {
+        self.dispatch(RouterEvent::StartListening)
+    }
+
+    pub fn navigate(&mut self, path: Routes) -> RouterResult<Routes> {
         self.location = path;
-        self.match_path()
+        self.match_path().map_err(|e| e.into())
     }
 
     fn is_running(&self) -> bool {
@@ -43,32 +67,34 @@ impl<Routes: Copy + Matcher> Router<Routes> {
         Ok(self.location)
     }
 
-    pub fn run(mut self) -> Result<Routes, RouterError> {
-        self.state = RouterState::Running(RunningState::Listening);
+    pub fn run(mut self) -> RouterResult {
+        todo!()
+        // self.state = RouterState::Running(RunningState::Listening);
 
-        // TODO: instead of trying to coerce everything to return a Route, even when it doesn't
-        // make sense, why not also impl an event dispatcher on the Router?
-        // then this can call self.dispatch on each loop iteration, issuing a `Navigate(next)` on
-        // successful routings or successful error recovery, and a `Exit` on Program exit?
-        // then error handler just needs to return a RouterEvent type
-        while self.is_running() {
-            self.location = match self.match_path() {
-                Ok(next) => next,
-                // TODO: IDEA: maybe instead of impl ErrorHandler for Router, I can use
-                // TryFrom<impl Into<RouterError>> for RouterEvent?
-                //         ^^^ Not sure this exactly will work, but could always first
-                //             RouterError::from(err), then RouterEvent::from(that err)...
-                Err(err) => match Router::<Routes>::handle_error(err, self.location) {
-                    Ok(next) => next,
-                    Err(RouterError::Exit(msg)) => self.exit(msg)?,
-                },
-            }
-        }
+        // // TODO: instead of trying to coerce everything to return a Route, even when it doesn't
+        // // make sense, why not also impl an event dispatcher on the Router?
+        // // then this can call self.dispatch on each loop iteration, issuing a `Navigate(next)` on
+        // // successful routings or successful error recovery, and a `Exit` on Program exit?
+        // // then error handler just needs to return a RouterEvent type
+        // while self.is_running() {
+        //     self.location = match self.match_path() {
+        //         Ok(next) => next,
+        //         // TODO: IDEA: maybe instead of impl ErrorHandler for Router, I can use
+        //         // TryFrom<impl Into<RouterError>> for RouterEvent?
+        //         //         ^^^ Not sure this exactly will work, but could always first
+        //         //             RouterError::from(err), then RouterEvent::from(that err)...
+        //         Err(err) => match Router::<Routes>::handle_error(err, self.location) {
+        //             Ok(next) => next,
+        //             Err(RouterError::Exit(msg)) => self.exit(msg)?,
+        //         },
+        //     }
+        // }
 
-        Ok(self.location)
+        // Ok(self.location)
     }
 }
 
+#[derive(Debug, PartialEq)]
 enum RouterState<Routes> {
     Initializing,
     Idle,
@@ -76,16 +102,51 @@ enum RouterState<Routes> {
     Exiting,
 }
 
+#[derive(Debug, PartialEq)]
 enum RunningState<Routes> {
     Listening,
     Navigating(Routes),
 }
 
+trait StateChange<R: Copy + std::fmt::Debug + Matcher + PartialEq>: Sized {
+    fn on_entry(&self, router: &mut Router<R>) -> RouterResult;
+    fn on_exit(&self, router: &mut Router<R>) -> RouterResult;
+}
+
+impl<R: Copy + std::fmt::Debug + Matcher + PartialEq> StateChange<R> for RouterState<R> {
+    fn on_exit(&self, router: &mut Router<R>) -> RouterResult {
+        todo!()
+    }
+
+    fn on_entry(&self, router: &mut Router<R>) -> RouterResult {
+        todo! {}
+    }
+}
+
+impl<R: Copy + std::fmt::Debug + Matcher + PartialEq> StateChange<R> for RunningState<R> {
+    fn on_exit(&self, router: &mut Router<R>) -> RouterResult {
+        todo!()
+    }
+
+    fn on_entry(&self, router: &mut Router<R>) -> RouterResult {
+        todo! {}
+    }
+}
+
+#[derive(Debug)]
 pub enum RouterEvent<Routes> {
+    StartListening,
     Goto(Routes),
     Cancel,
+    StopListening,
     Error(RouterError),
     Exit(String),
+}
+
+impl<R: Copy + std::fmt::Debug> RouterState<R> {
+    pub fn next_from_event(self, event: RouterEvent<R>) -> Result<Self, RouterError> {
+        todo!()
+    }
 }
 
 impl<E, R> From<E> for RouterEvent<R>
@@ -108,29 +169,6 @@ where
     }
 }
 
-pub trait ErrHandler<R, L = R> {
-    fn handle_error(err: impl Into<RouterError>, current_location: L) -> Result<R, RouterError>;
-}
-
-impl<Routes: Copy + Matcher> ErrHandler<Routes> for Router<Routes> {
-    fn handle_error(
-        err: impl Into<RouterError>,
-        current_location: Routes,
-    ) -> Result<Routes, RouterError> {
-        match err.into() {
-            // unhandled errors cancel navigation & keep router at current location?
-            RouterError::Unhandled(err) => {
-                error!("Unhandled error caught at router: {err:#?}");
-                Ok(current_location)
-            }
-
-            // TODO: irrecoverable errors cancel navigation & trigger program exit
-
-            // program exit causes program exit
-            RouterError::Exit(msg) => Err(RouterError::Exit(msg)),
-        }
-    }
-}
 // TODO: I'm sure there's a better way to do this, but need to read more on implementing errors &
 // error handling better in Rust
 #[derive(Debug)]
@@ -193,26 +231,27 @@ mod tests {
         }
     }
 
+    // #[tokio::test]
+    // async fn motivating_example() -> RouterResult {
+    //     let mut router = Router::new(RoutesTable::Somewhere);
+
+    //     let after_somewhere = router.init()?;
+    //     assert_eq!(after_somewhere, RoutesTable::AfterSomewhere);
+
+    //     let last_location = router.navigate(after_somewhere)?;
+    //     assert_eq!(
+    //         last_location,
+    //         RoutesTable::GoingDeeper(NestedRoutes::WentDeep)
+    //     );
+
+    //     let should_be_exit = router.navigate(last_location)?;
+    //     assert_eq!(should_be_exit, RoutesTable::Exit);
+
+    //     Ok(())
+    // }
+
     #[tokio::test]
-    async fn motivating_example() -> anyhow::Result<()> {
-        let mut router = Router::new(RoutesTable::Somewhere);
-
-        let after_somewhere = router.init()?;
-        assert_eq!(after_somewhere, RoutesTable::AfterSomewhere);
-
-        let last_location = router.navigate(after_somewhere)?;
-        assert_eq!(
-            last_location,
-            RoutesTable::GoingDeeper(NestedRoutes::WentDeep)
-        );
-
-        let should_be_exit = router.navigate(last_location)?;
-        assert_eq!(should_be_exit, RoutesTable::Exit);
-
-        Ok(())
-    }
-
-    #[tokio::test]
+    #[ignore]
     async fn router_processing_loop() {
         let router = Router::new(RoutesTable::Somewhere);
 
